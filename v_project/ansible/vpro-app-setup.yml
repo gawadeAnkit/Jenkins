@@ -1,105 +1,79 @@
-
-- name: Setup Tomcat8 & Deploy Artifact
+---
+- name: Setup Tomcat10 & Deploy VProfile Artifact
   hosts: appsrvgrp
   become: yes
   vars:
-    timestamp: "{{ansible_date_time.date}}_{{ansible_date_time.hour}}_{{ansible_date_time.minute}}"
+    nexus_ip: "100.58.201.192"
+    nexus_repo: "vprofile-release"
+    nexus_download_url: "http://{{ nexus_ip }}:8081/service/rest/v1/search/assets/download?repository={{ nexus_repo }}&maven.groupId=com.visualpathit&maven.artifactId=vprofile&maven.extension=war&sort=version"
+    tomcat_home: "/usr/local/tomcat10"
+    timestamp: "{{ ansible_date_time.date }}_{{ ansible_date_time.hour }}_{{ ansible_date_time.minute }}"
+
   tasks:
-    - name: Download latest VProfile.war from nexus
+    - name: Download latest VProfile WAR artifact from Nexus
       get_url:
-        url: "http://{{USER}}:{{PASS}}@{{nexusip}}:8081/repository/{{reponame}}/{{groupid}}/{{time}}/{{build}}/{{vprofile_version}}"
-        dest: "/tmp/vproapp-{{vprofile_version}}"
-      register: wardeploy
+        url: "{{ nexus_download_url }}"
+        dest: "/tmp/vprofile.war"
+        mode: '0644'
+        force: yes
+      register: war_download
       tags:
-       - deploy
+        - deploy
 
-    - stat:
-        path: /usr/local/tomcat8/webapps/ROOT
-      register: artifact_stat
+    - name: Check if existing ROOT webapp exists
+      stat:
+        path: "{{ tomcat_home }}/webapps/ROOT"
+      register: root_stat
       tags:
-       - deploy
+        - deploy
 
-    - name: Stop tomcat svc
+    - name: Stop Tomcat service before deployment
       service:
         name: tomcat
         state: stopped
       tags:
-       - deploy
+        - deploy
 
-    - name: Try Backup and Deploy
-      block:
-      - name: Archive ROOT dir with timestamp
-        archive:
-          path: /usr/local/tomcat8/webapps/ROOT
-          dest: "/opt/ROOT_{{timestamp}}.tgz"
-        when: artifact_stat.stat.exists
-        register: archive_info
-        tags:
-         - deploy
+    - name: Backup existing ROOT application if present
+      archive:
+        path: "{{ tomcat_home }}/webapps/ROOT"
+        dest: "/opt/ROOT_backup_{{ timestamp }}.tgz"
+      when: root_stat.stat.exists
+      tags:
+        - deploy
 
-      - name: copy ROOT dir with old_ROOT name
-        shell: cp -r ROOT old_ROOT
-        args:
-          chdir: /usr/local/tomcat8/webapps/
+    - name: Clean up old ROOT directory and ROOT.war
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "{{ tomcat_home }}/webapps/ROOT"
+        - "{{ tomcat_home }}/webapps/ROOT.war"
+      tags:
+        - deploy
 
-      - name: Delete current artifact
-        file:
-          path: "{{item}}"
-          state: absent
-        when: archive_info.changed
-        loop:
-         - /usr/local/tomcat8/webapps/ROOT
-         - /usr/local/tomcat8/webapps/ROOT.war
-        tags:
-         - deploy
+    - name: Deploy new VProfile artifact as ROOT.war
+      copy:
+        src: "/tmp/vprofile.war"
+        dest: "{{ tomcat_home }}/webapps/ROOT.war"
+        remote_src: yes
+        owner: tomcat
+        group: tomcat
+        mode: '0644'
+      tags:
+        - deploy
 
-      - name: Try deploy artifact else restore from previos old_ROOT
-        block:
-         - name: Deploy vprofile artifact
-           copy:
-             src: "/tmp/vproapp-{{vprofile_version}}"
-             dest: /usr/local/tomcat8/webapps/ROOT.war
-             remote_src: yes
-           register: deploy_info
-           tags:
-            - deploy
-        rescue:
-          - shell: cp -r old_ROOT ROOT
-            args:
-              chdir: /usr/local/tomcat8/webapps/
-
-      rescue:
-       - name: Start tomcat svc
-         service:
-          name: tomcat
-          state: started
-
-    - name: Start tomcat svc
+    - name: Start Tomcat 10 service
       service:
         name: tomcat
         state: started
-      when: deploy_info.changed
       tags:
-       - deploy
+        - deploy
 
-    - name: Wait until ROOT.war is extracted to ROOT directory
+    - name: Wait for Tomcat to extract ROOT.war into ROOT directory
       wait_for:
-        path: /usr/local/tomcat8/webapps/ROOT
+        path: "{{ tomcat_home }}/webapps/ROOT"
+        state: present
+        timeout: 60
       tags:
-       - deploy
-
-#    - name: Deploy web configuration file
-#      template:
-#        src: templates/application.j2
-#        dest: /usr/local/tomcat8/webapps/ROOT/WEB-INF/classes/application.properties
-#        force: yes
-#      notify:
-#       - Restart Tomcat
-#      tags:
-#       - deploy
-
-  handlers:
-   - name: Restart Tomcat
-     service:
-      name: tomcat
-      state: restarted
+        - deploy

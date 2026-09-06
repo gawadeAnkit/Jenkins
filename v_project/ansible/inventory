@@ -1,0 +1,2 @@
+[appsrvgrp]
+172.31.88.226 ansible_user=ubuntu ansible_ssh_private_key_file=jenkins-key.pem ansible_python_interpreter=/usr/bin/python3

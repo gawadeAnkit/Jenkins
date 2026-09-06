@@ -1,17 +1,20 @@
 [Unit]
-Description=Tomcat
+Description=Apache Tomcat 10 Web Application Server
 After=network.target
 
 [Service]
+Type=forking
 User=tomcat
-WorkingDirectory=/usr/local/tomcat8
-Environment=JRE_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre
-Environment=JAVA_HOME=/usr/lib/jvm/java-1.8.0-openjdk-amd64/jre
-Environment=CATALINA_HOME=/usr/local/tomcat8
-Environment=CATALINE_BASE=/usr/local/tomcat8
-ExecStart=/usr/local/tomcat8/bin/catalina.sh run
-ExecStop=/usr/local/tomcat8/bin/shutdown.sh
-SyslogIdentifier=tomcat-%i
+Group=tomcat
+WorkingDirectory=/usr/local/tomcat10
+Environment="JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64"
+Environment="CATALINA_HOME=/usr/local/tomcat10"
+Environment="CATALINA_BASE=/usr/local/tomcat10"
+Environment="CATALINA_PID=/usr/local/tomcat10/temp/tomcat.pid"
+ExecStart=/usr/local/tomcat10/bin/startup.sh
+ExecStop=/usr/local/tomcat10/bin/shutdown.sh
+RestartSec=10
+Restart=always
 
 [Install]
 WantedBy=multi-user.target
