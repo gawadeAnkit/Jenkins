@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    options {
+        timestamps() // Adds timestamps to every console log line
+    }
+
     tools {
         maven "MAVEN3"
         jdk "JDK17"
@@ -13,7 +17,6 @@ pipeline {
         NEXUS_REPOSITORY    = "vprofile-release"
         NEXUS_REPO_ID       = "vprofile-release"
         NEXUS_CREDENTIAL_ID = "nexuslogin"
-        ARTVERSION          = "${env.BUILD_ID}"
         MAVEN_OPTS          = "-Xms256m -Xmx1024m"
     }
 
@@ -96,13 +99,16 @@ pipeline {
                         artifactPath = filesByGlob[0].path;
                         artifactExists = fileExists artifactPath;
                         if(artifactExists) {
-                            echo "*** File: ${artifactPath}, group: ${pom.groupId}, packaging: ${pom.packaging}, version ${pom.version} ARTVERSION";
+                            // Generate timestamp: YYYYMMDD_HHMMSS
+                            def timeStamp = sh(script: 'date +%Y%m%d_%H%M%S', returnStdout: true).trim();
+                            def artVersion = "${env.BUILD_ID}-${timeStamp}";
+                            echo "*** File: ${artifactPath}, group: ${pom.groupId}, packaging: ${pom.packaging}, version: ${artVersion}";
                             nexusArtifactUploader(
                                 nexusVersion: NEXUS_VERSION,
                                 protocol: NEXUS_PROTOCOL,
                                 nexusUrl: NEXUS_URL,
                                 groupId: pom.groupId,
-                                version: ARTVERSION,
+                                version: artVersion,
                                 repository: NEXUS_REPOSITORY,
                                 credentialsId: NEXUS_CREDENTIAL_ID,
                                 artifacts: [
