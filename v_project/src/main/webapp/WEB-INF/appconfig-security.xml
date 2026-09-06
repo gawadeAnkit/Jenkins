@@ -22,7 +22,7 @@
 	</authentication-manager>
 
 	<beans:bean id="userDetailsServiceImpl"
-		class="com.visualpathit.account.service.UserDetailsServiceImpl" />
+		class="com.vprofile.account.service.UserDetailsServiceImpl" />
 
 	<beans:bean id="encoder"
 		class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder">

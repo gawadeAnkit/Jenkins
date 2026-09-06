@@ -62,7 +62,7 @@ CREATE TABLE `user` (
 
 LOCK TABLES `user` WRITE;
 /*!40000 ALTER TABLE `user` DISABLE KEYS */;
-INSERT INTO `user` VALUES (4,'admin_vp','admin@visualpathit.com','$2a$11$DSEIKJNrgPjG.iCYUwErvOkREtC67mqzQ.ogkZbc/KOW1OPOpZfY6');
+INSERT INTO `user` VALUES (4,'admin_vp','admin@vprofile.com','$2a$11$DSEIKJNrgPjG.iCYUwErvOkREtC67mqzQ.ogkZbc/KOW1OPOpZfY6');
 /*!40000 ALTER TABLE `user` ENABLE KEYS */;
 UNLOCK TABLES;
 

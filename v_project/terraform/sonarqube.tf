@@ -3,21 +3,19 @@
 # ==============================================================================
 resource "aws_security_group" "sonarqube_sg" {
   name        = "sonarqube-server-sg"
-  description = "Security group for SonarQube Server (Ports 22 & 9000 only)"
+  description = "Security group for SonarQube Server"
   vpc_id      = data.aws_vpc.default.id
 
-  # SSH access restricted to your detected public IP
   ingress {
-    description = "SSH from your public IP"
+    description = "SSH administrative access"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = [local.my_cidr]
   }
 
-  # SonarQube Web Dashboard & Scanner API
   ingress {
-    description = "SonarQube Web UI & Scanner"
+    description = "SonarQube Web UI & Scanner API"
     from_port   = 9000
     to_port     = 9000
     protocol    = "tcp"
@@ -39,17 +37,16 @@ resource "aws_security_group" "sonarqube_sg" {
 }
 
 # ==============================================================================
-# SONARQUBE EC2 INSTANCE (Strict Minimal Free Tier Setup)
+# SONARQUBE EC2 INSTANCE
 # ==============================================================================
 resource "aws_instance" "sonarqube_server" {
   ami                         = data.aws_ami.ubuntu.id
-  instance_type               = var.instance_type # t3.micro (Free Tier)
+  instance_type               = var.instance_type
   key_name                    = aws_key_pair.jenkins_key.key_name
   vpc_security_group_ids      = [aws_security_group.sonarqube_sg.id]
   subnet_id                   = data.aws_subnets.default.ids[0]
   associate_public_ip_address = true
 
-  # 10 GB minimal volume (Jenkins 8GB + SonarQube 10GB = 18GB total out of 30GB free limit)
   root_block_device {
     volume_size           = 10
     volume_type           = "gp3"

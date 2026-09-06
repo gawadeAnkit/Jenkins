@@ -3,19 +3,17 @@
 # ==============================================================================
 resource "aws_security_group" "nexus_sg" {
   name        = "nexus-server-sg"
-  description = "Security group for Nexus Repository Manager (Ports 22 & 8081 only)"
+  description = "Security group for Nexus Repository Manager"
   vpc_id      = data.aws_vpc.default.id
 
-  # SSH access restricted to your detected public IP
   ingress {
-    description = "SSH from your public IP"
+    description = "SSH administrative access"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
     cidr_blocks = [local.my_cidr]
   }
 
-  # Nexus Web UI & Artifact Upload
   ingress {
     description = "Nexus Web Dashboard and Repository API"
     from_port   = 8081
@@ -39,17 +37,16 @@ resource "aws_security_group" "nexus_sg" {
 }
 
 # ==============================================================================
-# NEXUS EC2 INSTANCE (Strict Minimal Free Tier Setup)
+# NEXUS EC2 INSTANCE
 # ==============================================================================
 resource "aws_instance" "nexus_server" {
   ami                         = data.aws_ami.ubuntu.id
-  instance_type               = var.instance_type # t3.micro (Free Tier)
+  instance_type               = var.instance_type
   key_name                    = aws_key_pair.jenkins_key.key_name
   vpc_security_group_ids      = [aws_security_group.nexus_sg.id]
   subnet_id                   = data.aws_subnets.default.ids[0]
   associate_public_ip_address = true
 
-  # 10 GB minimal volume (Jenkins 8GB + Sonar 10GB + Nexus 10GB = 28GB, safely under 30GB limit)
   root_block_device {
     volume_size           = 10
     volume_type           = "gp3"

@@ -5,12 +5,12 @@ set -e
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
 echo "============================================================"
-echo "Starting Nexus 3 Installation (Free Tier Optimized)"
+echo "Starting Nexus Repository Manager 3 Installation"
 echo "============================================================"
 
-# 1. SETUP 2.5GB SWAP SPACE (Allows Nexus 3 to run within 10GB disk on t3.micro)
+# 1. SETUP SWAP SPACE
 if ! grep -q '/swapfile' /etc/fstab; then
-    echo "Creating 2.5GB swap file..."
+    echo "Creating swap file..."
     fallocate -l 2560M /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2560
     chmod 600 /swapfile
     mkswap /swapfile
@@ -33,11 +33,11 @@ echo "Downloading Nexus from ${NEXUS_URL}..."
 wget -q --show-progress "${NEXUS_URL}" -O nexus.tar.gz
 
 tar -xzf nexus.tar.gz -C /opt/nexus/
-rm -f nexus.tar.gz # Delete installer tarball immediately to save disk space
+rm -f nexus.tar.gz
 
 NEXUS_DIR=$(ls -d /opt/nexus/nexus-3* | head -n 1)
 
-# 4. TUNE JVM MEMORY FOR T3.MICRO (Crucial to prevent Out-Of-Memory)
+# 4. TUNE JVM MEMORY ALLOCATION
 cat <<EOT > ${NEXUS_DIR}/bin/nexus.vmoptions
 -Xms256m
 -Xmx512m

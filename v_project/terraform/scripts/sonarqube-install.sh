@@ -5,10 +5,10 @@ set -e
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
 echo "============================================================"
-echo "Starting SonarQube Installation (Free Tier Optimized)"
+echo "Starting SonarQube Code Quality Server Installation"
 echo "============================================================"
 
-# 1. SETUP 2GB SWAP SPACE (Allows SonarQube & Elasticsearch to run within 10GB disk)
+# 1. SETUP SWAP SPACE
 if ! grep -q '/swapfile' /etc/fstab; then
     echo "Creating 2GB swap file..."
     fallocate -l 2G /swapfile || dd if=/dev/zero of=/swapfile bs=1M count=2048
@@ -55,7 +55,7 @@ echo "Downloading SonarQube from ${SONAR_ZIP_URL}..."
 wget -q --show-progress "${SONAR_ZIP_URL}" -O sonarqube.zip
 
 unzip -q sonarqube.zip -d /opt/
-rm -f sonarqube.zip # Delete zip immediately to save 1GB disk space
+rm -f sonarqube.zip
 EXT_DIR=$(unzip -l /opt/sonarqube.zip 2>/dev/null || ls -d /opt/sonarqube-* | head -n 1)
 if [ -d "${EXT_DIR}" ] && [ ! -d "/opt/sonarqube" ]; then
     mv "${EXT_DIR}" /opt/sonarqube
@@ -66,7 +66,7 @@ id -u sonar &>/dev/null || useradd -c "SonarQube - User" -d /opt/sonarqube/ -m -
 chown -R sonar:sonar /opt/sonarqube
 chmod 1777 /tmp
 
-# 6. CONFIGURE SONAR.PROPERTIES (Tuned memory for t3.micro)
+# 6. CONFIGURE SONAR.PROPERTIES
 cat <<EOT > /opt/sonarqube/conf/sonar.properties
 sonar.jdbc.username=sonar
 sonar.jdbc.password=admin123

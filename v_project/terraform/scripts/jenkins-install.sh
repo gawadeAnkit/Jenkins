@@ -5,11 +5,10 @@ set -e
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
 echo "============================================================"
-echo "Starting Free Tier Jenkins Installation (with 3GB Swap)"
+echo "Starting Jenkins CI Controller Installation"
 echo "============================================================"
 
 # 1. SETUP SWAP SPACE (Dynamically sized to fit volume)
-# Essential for t2.micro / t3.micro (1GB RAM) to run Java 17 + Jenkins + Maven without crashing
 if ! grep -q '/swapfile' /etc/fstab; then
     FREE_DISK_GB=$(df -BG / | awk 'NR==2 {print $4}' | sed 's/G//')
     if [ "$FREE_DISK_GB" -le 6 ]; then
@@ -45,7 +44,7 @@ echo "deb [signed-by=/etc/apt/keyrings/jenkins-keyring.asc] https://pkg.jenkins.
 apt-get update -y
 apt-get install -y jenkins
 
-# 4. TUNE JVM MEMORY FOR T2.MICRO (limit heap to 512MB max)
+# 4. TUNE JVM MEMORY ALLOCATION
 mkdir -p /etc/systemd/system/jenkins.service.d/
 cat <<EOF > /etc/systemd/system/jenkins.service.d/override.conf
 [Service]

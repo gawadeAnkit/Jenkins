@@ -1,5 +1,5 @@
 variable "aws_region" {
-  description = "AWS Region to deploy resources into (defaults to your configured us-east-1)"
+  description = "AWS Region to deploy resources into"
   type        = string
   default     = "us-east-1"
 }
@@ -11,13 +11,14 @@ variable "instance_name" {
 }
 
 variable "instance_type" {
-  description = "EC2 Instance type (t2.micro is 100% Free Tier eligible - 750 hrs/month)"
+  description = "EC2 Instance type for CI/CD servers"
   type        = string
   default     = "t3.micro"
 }
 
 variable "volume_size" {
-  description = "Root EBS volume size in GB (Free tier includes up to 30 GB total across account)"
+  description = "Root EBS volume size in GB"
   type        = number
   default     = 10
 }
+
