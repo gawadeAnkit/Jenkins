@@ -19,5 +19,5 @@ variable "instance_type" {
 variable "volume_size" {
   description = "Root EBS volume size in GB (Free tier includes up to 30 GB total across account)"
   type        = number
-  default     = 8
+  default     = 10
 }
