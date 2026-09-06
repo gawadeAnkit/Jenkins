@@ -15,8 +15,9 @@ Write-Host "====================================================================
 
 $confirm = Read-Host "Type 'destroy' to proceed with complete teardown"
 if ($confirm -eq "destroy") {
-    Write-Host "`nInitiating Terraform Destroy..." -ForegroundColor Cyan
-    terraform -chdir=v_project/terraform destroy -auto-approve
+    $tfDir = Join-Path $PSScriptRoot "..\terraform"
+    Write-Host "`nInitiating Terraform Destroy in $tfDir..." -ForegroundColor Cyan
+    terraform -chdir=$tfDir destroy -auto-approve
     Write-Host "`nAll AWS resources have been successfully destroyed. Account cost is $0.00." -ForegroundColor Green
 } else {
     Write-Host "`nTeardown cancelled. No resources were modified." -ForegroundColor Gray

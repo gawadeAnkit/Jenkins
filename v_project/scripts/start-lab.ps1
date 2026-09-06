@@ -28,8 +28,34 @@ aws ec2 describe-instances `
     --query "Reservations[*].Instances[*].[Tags[?Key=='Name'].Value | [0], State.Name, PublicIpAddress]" `
     --output table
 
-Write-Host "`nService Web Dashboard Port Reference:" -ForegroundColor Cyan
-Write-Host "  - Jenkins:    http://<Jenkins_Public_IP>:8080" -ForegroundColor White
-Write-Host "  - App Server: http://<AppServer_Public_IP>:8080" -ForegroundColor White
-Write-Host "  - Nexus:      http://<Nexus_Public_IP>:8081" -ForegroundColor White
-Write-Host "  - SonarQube:  http://<SonarQube_Public_IP>:9000" -ForegroundColor White
+$rawJson = aws ec2 describe-instances `
+    --filters "Name=tag:Project,Values=vprofile" "Name=instance-state-name,Values=running" `
+    --query "Reservations[].Instances[].[Tags[?Key=='Name'].Value | [0], PublicIpAddress]" `
+    --output json
+
+$dict = @{}
+if ($rawJson) {
+    $arr = $rawJson | ConvertFrom-Json
+    foreach ($item in $arr) {
+        if ($item.Count -ge 2 -and $item[0]) {
+            $dict[$item[0]] = $item[1]
+        }
+    }
+}
+
+$jenkinsIp = $dict['Jenkins server']
+$appIp     = $dict['App server']
+$nexusIp   = $dict['Nexus server']
+$sonarIp   = $dict['SonarQube server']
+
+Write-Host "`nLive Dashboard URLs:" -ForegroundColor Cyan
+if ($jenkinsIp) { Write-Host "  - Jenkins:    http://${jenkinsIp}:8080" -ForegroundColor Green }
+if ($appIp)     { Write-Host "  - App Server: http://${appIp}:8080" -ForegroundColor Green }
+if ($nexusIp)   { Write-Host "  - Nexus:      http://${nexusIp}:8081" -ForegroundColor Green }
+if ($sonarIp)   { Write-Host "  - SonarQube:  http://${sonarIp}:9000" -ForegroundColor Green }
+
+if ($jenkinsIp) {
+    Write-Host "`nGitHub Webhook URL (update in GitHub Settings -> Webhooks):" -ForegroundColor Yellow
+    Write-Host "  http://${jenkinsIp}:8080/github-webhook/" -ForegroundColor White
+}
+

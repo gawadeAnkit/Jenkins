@@ -3,7 +3,7 @@
   hosts: appsrvgrp
   become: yes
   vars:
-    nexus_ip: "100.58.201.192"
+    nexus_ip: "172.31.89.246"
     nexus_repo: "vprofile-release"
     nexus_download_url: "http://{{ nexus_ip }}:8081/service/rest/v1/search/assets/download?repository={{ nexus_repo }}&maven.groupId=com.vprofile&maven.artifactId=vprofile&maven.extension=war&sort=version"
     tomcat_home: "/usr/local/tomcat10"
