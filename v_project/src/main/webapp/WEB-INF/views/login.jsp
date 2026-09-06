@@ -72,7 +72,10 @@
                         <span class="icon-bar"></span>
                         <span class="icon-bar"></span>
                     </button>
-                    <a class="navbar-brand" href="${contextPath}/index">HKH Infotech</a>
+                    <a class="navbar-brand" href="${contextPath}/index" style="display:flex;align-items:center;gap:8px;">
+                        <img src="${contextPath}/resources/Images/user/logo.png" alt="Logo" style="width:28px;height:28px;border-radius:4px;">
+                        Ankit Infotech
+                    </a>
                 </div>
                 <div class="collapse navbar-collapse" id="navbarCollapse">
                     <ul class="nav navbar-nav navbar-right">
@@ -88,6 +91,9 @@
     <div class="container-login100">
         <div class="wrap-login100 p-l-55 p-r-55 p-t-65 p-b-54">
             <form class="login100-form validate-form" method="POST" action="${contextPath}/login">
+                <div style="text-align:center;margin-bottom:20px;">
+                    <img src="${contextPath}/resources/Images/user/logo.png" alt="Ankit Infotech" style="width:64px;height:64px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                </div>
                 <span class="login100-form-title p-b-49">
                     Login
                 </span>

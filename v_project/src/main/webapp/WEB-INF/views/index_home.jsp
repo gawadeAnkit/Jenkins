@@ -20,7 +20,10 @@
                     <span class="icon-bar"></span>
                     <span class="icon-bar"></span>
                 </button>
-                <a class="navbar-brand" href="${contextPath}/index">HKH Infotech</a>
+                <a class="navbar-brand" href="${contextPath}/index" style="display:flex;align-items:center;gap:8px;">
+                    <img src="${contextPath}/resources/Images/user/logo.png" alt="Logo" style="width:28px;height:28px;border-radius:4px;">
+                    Ankit Infotech
+                </a>
             </div>
             <div class="navbar-collapse collapse">
                 <ul class="nav navbar-nav">
@@ -105,20 +108,20 @@
     <h3 class="w3-border-bottom w3-border-light-grey w3-padding-16" align="center">ABOUT</h3>
     <div class="w3-content" style="max-width:864px">
 	     <p style="text-align:justify;">
-                    HKH Infotech is a dynamic software company dedicated to delivering innovative technology solutions. Founded with a mission to leverage cutting-edge technology and unparalleled expertise, we specialize in creating high-quality software solutions that drive business success.
+                    Ankit Infotech is a dynamic software engineering company dedicated to delivering innovative cloud and enterprise technology solutions. Founded with a mission to leverage cutting-edge technology and unparalleled DevOps expertise, we specialize in building high-quality automated software platforms that drive business success.
                 </p>
                 <p style="text-align:justify;">
-                    Our team is led by seasoned DevOps experts with many years of industry experience. They bring a wealth of knowledge in automating and optimizing the software development lifecycle, ensuring that our projects are efficient, reliable, and scalable.
+                    Our team is led by seasoned Cloud & DevOps engineers with deep industry experience in multi-tier architectures, continuous delivery pipelines, and resilient cloud automation. We bring a wealth of knowledge in automating and optimizing the software development lifecycle, ensuring that our systems are efficient, reliable, and scalable.
                 </p>
                 <p style="text-align:justify;">
-                    At HKH Infotech, we focus on understanding our clients' unique needs and providing tailored solutions that meet their objectives. Whether it's custom software development, system integration, or ongoing support, we are committed to excellence and client satisfaction.
+                    At Ankit Infotech, we focus on understanding our clients' unique needs and providing tailored solutions that meet their strategic objectives. Whether it's custom cloud infrastructure, CI/CD pipeline automation, or end-to-end systems integration, we are committed to engineering excellence.
                 </p>
                 <p style="text-align:justify;">
-                    With a commitment to staying ahead of technological trends and a passion for innovation, HKH Infotech is your trusted partner in navigating the digital landscape and achieving your business goals.
+                    With a commitment to staying ahead of technological trends and a passion for automation, Ankit Infotech is your trusted partner in navigating modern cloud computing.
                 </p>
-                <p><strong>Address:</strong> Punjagutta Colony Ameerpet, Hyderabad</p>
+                <p><strong>Address:</strong> Tech Innovation Park, Pune, Maharashtra, India</p>
                 <p><strong>Phone:</strong> +91-8001234567</p>
-                <p><strong>Email:</strong> contact@hkhinfotech.com</p>
+                <p><strong>Email:</strong> contact@ankitinfotech.com</p>
   	</div>
    </div>
 

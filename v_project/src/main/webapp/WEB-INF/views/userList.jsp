@@ -86,7 +86,10 @@
                                     <span class="icon-bar"></span>
                                     <span class="icon-bar"></span>
                                 </button>
-                                <a class="navbar-brand" href="${contextPath}/index">HKH Infotech</a>
+                                <a class="navbar-brand" href="${contextPath}/index" style="display:flex;align-items:center;gap:8px;">
+                                    <img src="${contextPath}/resources/Images/user/logo.png" alt="Logo" style="width:28px;height:28px;border-radius:4px;">
+                                    Ankit Infotech
+                                </a>
                             </div>
                             <div class="navbar-collapse collapse">
 

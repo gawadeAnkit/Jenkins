@@ -57,7 +57,10 @@
 <body>
     <!-- Navbar -->
     <nav class="navbar navbar-custom navbar-expand-lg navbar-light">
-        <a class="navbar-brand" href="${contextPath}/">HKH Infotech</a>
+        <a class="navbar-brand" href="${contextPath}/" style="display:flex;align-items:center;gap:8px;">
+            <img src="${contextPath}/resources/Images/user/logo.png" alt="Logo" style="width:28px;height:28px;border-radius:4px;">
+            Ankit Infotech
+        </a>
         <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -71,6 +74,9 @@
         <div class="container-login100">
             <div class="wrap-login100 p-l-55 p-r-55 p-t-65 p-b-50">
                 <form:form modelAttribute="userForm" method="post" class="login100-form validate-form">
+                    <div style="text-align:center;margin-bottom:20px;">
+                        <img src="${contextPath}/resources/Images/user/logo.png" alt="Ankit Infotech" style="width:64px;height:64px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.15);">
+                    </div>
                     <span class="login100-form-title p-b-30">Sign Up</span>
 
                     <!-- Email field -->
