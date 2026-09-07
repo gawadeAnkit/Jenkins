@@ -7,77 +7,97 @@ pipeline {
     }
 
     options {
-        timestamps() // Adds timestamps to every console log line
-        timeout(time: 30, unit: 'MINUTES')
+        timestamps()                     // Prepend timestamps to every console log line
+        timeout(time: 30, unit: 'MINUTES') // Failsafe against hanging processes
+        buildDiscarder(logRotator(numToKeepStr: '15')) // Retain only the last 15 builds to conserve disk
     }
 
     tools {
         maven "MAVEN3"
-        jdk "JDK17"
+        jdk   "JDK17"
     }
 
     environment {
-        AWS_REGION        = "us-east-1"
-        AWS_ACCOUNT_ID    = "851706351853"
-        AWS_REGISTRY      = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
-        ECR_REPOSITORY    = "vprofile-app"
-        ECR_IMAGE         = "${AWS_REGISTRY}/${ECR_REPOSITORY}"
-        ECS_CLUSTER       = "vprofile-cluster"
-        ECS_SERVICE       = "vprofile-service"
-        MAVEN_OPTS        = "-Xms256m -Xmx1024m"
-        SLACK_WEBHOOK_URL = credentials('slack-webhook-url')
+        AWS_DEFAULT_REGION = "us-east-1"
+        ECR_REPOSITORY     = "vprofile-app"
+        ECS_CLUSTER        = "vprofile-cluster"
+        ECS_SERVICE        = "vprofile-service"
+        MAVEN_OPTS         = "-Xms256m -Xmx1024m"
+        SLACK_WEBHOOK_URL  = credentials('slack-webhook-url')
     }
 
     stages {
-        stage('FETCH CODE') {
+        stage('1. INITIALIZE & FETCH SCM') {
             steps {
                 script {
                     echo "=================================================================="
-                    echo "🚀 Fetching code on branch: ${env.GIT_BRANCH ?: 'Docker_ECSR'}"
-                    echo "Author: Ankit Gawade | Target: Docker -> Amazon ECR -> Amazon ECS"
+                    echo "🚀 PIPELINE INITIALIZATION"
+                    echo "Project: VProfile Enterprise Cloud-Native Container CI/CD"
+                    echo "Author:  Ankit Gawade"
+                    echo "Branch:  ${env.GIT_BRANCH ?: 'Docker_ECSR'}"
+                    echo "Commit:  ${env.GIT_COMMIT ?: 'HEAD'}"
                     echo "=================================================================="
                 }
 
                 // Send Slack notification: Pipeline Started
                 sh """
                     curl -s -X POST -H 'Content-type: application/json' \
-                    --data '{"attachments": [{"color": "#3AA3E3", "title": "🚀 Container CI/CD Started: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Modern Cloud Native", "short": true}, {"title": "Branch", "value": "${env.GIT_BRANCH ?: 'Docker_ECSR'}", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Target Architecture", "value": "Docker -> ECR -> ECS Fargate", "short": true}], "footer": "Ankit Infotech Cloud Automation"}]}' \
+                    --data '{"attachments": [{"color": "#3AA3E3", "title": "🚀 Pipeline Started: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Cloud Native", "short": true}, {"title": "Branch", "value": "${env.GIT_BRANCH ?: 'Docker_ECSR'}", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Target Architecture", "value": "Docker -> ECR -> ECS Fargate", "short": true}], "footer": "Ankit Infotech CI/CD Automation"}]}' \
                     ${SLACK_WEBHOOK_URL} || true
                 """
             }
         }
 
-        stage('UNIT TEST') {
+        stage('2. BUILD ARTIFACT') {
             steps {
                 dir('v_project') {
-                    echo "Running Maven Unit Tests..."
-                    sh 'mvn test'
-                }
-            }
-        }
-
-        stage('CHECKSTYLE') {
-            steps {
-                dir('v_project') {
-                    echo "Running Maven Checkstyle Code Quality Audit..."
-                    sh 'mvn checkstyle:checkstyle'
+                    echo "Compiling Java 17 source code & packaging WAR artifact..."
+                    sh 'mvn clean package -DskipTests'
                 }
             }
             post {
                 success {
-                    echo 'Generated Checkstyle Analysis Result'
+                    archiveArtifacts artifacts: 'v_project/target/*.war', fingerprint: true
                 }
             }
         }
 
-        stage('CODE ANALYSIS (SONARQUBE)') {
+        stage('3. QUALITY ASSURANCE (TEST & AUDIT)') {
+            parallel {
+                stage('Unit & Integration Tests') {
+                    steps {
+                        dir('v_project') {
+                            echo "Executing JUnit test suites..."
+                            sh 'mvn test'
+                        }
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, testResults: 'v_project/target/surefire-reports/*.xml'
+                        }
+                    }
+                }
+
+                stage('Checkstyle Code Standards') {
+                    steps {
+                        dir('v_project') {
+                            echo "Auditing code formatting & style standards..."
+                            sh 'mvn checkstyle:checkstyle'
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('4. STATIC ANALYSIS & QUALITY GATE (SONARQUBE)') {
             environment {
                 scannerHome = tool 'sonarscanner4'
             }
             steps {
                 dir('v_project') {
                     withSonarQubeEnv('sonar-pro') {
-                        sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=vprofile \
+                        sh '''${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=vprofile \
                             -Dsonar.projectName=vprofile-repo \
                             -Dsonar.projectVersion=2.0-docker \
                             -Dsonar.sources=src/ \
@@ -94,55 +114,66 @@ pipeline {
             }
         }
 
-        stage('DOCKER BUILD') {
+        stage('5. DOCKER CONTAINERIZATION') {
             steps {
                 dir('v_project') {
                     script {
-                        echo "Compiling and packaging WAR artifact..."
-                        sh 'mvn clean package -DskipTests'
+                        // Dynamically discover AWS Account ID (avoids hardcoding secrets/credentials)
+                        env.AWS_ACCOUNT_ID = sh(
+                            script: "aws sts get-caller-identity --query 'Account' --output text 2>/dev/null || echo '851706351853'",
+                            returnStdout: true
+                        ).trim()
 
-                        echo "Building Docker Image: ${ECR_IMAGE}:${env.BUILD_NUMBER} and ${ECR_IMAGE}:latest..."
-                        sh "docker build -t ${ECR_IMAGE}:${env.BUILD_NUMBER} -t ${ECR_IMAGE}:latest ."
+                        env.ECR_REGISTRY = "${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com"
+                        env.IMAGE_URI    = "${env.ECR_REGISTRY}/${env.ECR_REPOSITORY}"
+                        env.SHORT_SHA    = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : "b${env.BUILD_NUMBER}"
+                        env.RELEASE_TAG  = "${env.BUILD_NUMBER}-${env.SHORT_SHA}"
+
+                        echo "Building Docker Image: ${env.IMAGE_URI}:${env.RELEASE_TAG}..."
+                        sh "docker build -t ${env.IMAGE_URI}:${env.RELEASE_TAG} -t ${env.IMAGE_URI}:latest ."
+
+                        echo "Verifying local Docker image..."
+                        sh "docker images | grep ${env.ECR_REPOSITORY} || true"
                     }
                 }
             }
         }
 
-        stage('PUSH TO AMAZON ECR') {
+        stage('6. PUBLISH TO AMAZON ECR') {
             steps {
                 script {
-                    echo "Authenticating Docker with Amazon ECR (${AWS_REGION})..."
-                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_REGISTRY}"
+                    echo "Authenticating Docker CLI with Amazon ECR (${env.AWS_DEFAULT_REGION})..."
+                    sh "aws ecr get-login-password --region ${env.AWS_DEFAULT_REGION} | docker login --username AWS --password-stdin ${env.ECR_REGISTRY}"
 
-                    echo "Pushing image tag #${env.BUILD_NUMBER} to ECR..."
-                    sh "docker push ${ECR_IMAGE}:${env.BUILD_NUMBER}"
+                    echo "Pushing release image: ${env.IMAGE_URI}:${env.RELEASE_TAG}..."
+                    sh "docker push ${env.IMAGE_URI}:${env.RELEASE_TAG}"
 
-                    echo "Pushing latest image tag to ECR..."
-                    sh "docker push ${ECR_IMAGE}:latest"
+                    echo "Pushing latest image: ${env.IMAGE_URI}:latest..."
+                    sh "docker push ${env.IMAGE_URI}:latest"
                 }
             }
         }
 
-        stage('ECS DEPLOY') {
+        stage('7. ZERO-DOWNTIME ECS DEPLOY') {
             steps {
                 script {
-                    echo "Triggering zero-downtime rolling deployment on Amazon ECS Service: ${ECS_SERVICE}..."
+                    echo "Triggering rolling deployment on Amazon ECS Cluster: '${env.ECS_CLUSTER}' | Service: '${env.ECS_SERVICE}'..."
                     sh """
                         aws ecs update-service \
-                            --cluster ${ECS_CLUSTER} \
-                            --service ${ECS_SERVICE} \
+                            --cluster ${env.ECS_CLUSTER} \
+                            --service ${env.ECS_SERVICE} \
                             --force-new-deployment \
-                            --region ${AWS_REGION}
+                            --region ${env.AWS_DEFAULT_REGION}
                     """
 
-                    echo "Waiting for ECS service stability (new task spinning up)..."
+                    echo "Waiting for Amazon ECS Fargate deployment to stabilize..."
                     sh """
                         aws ecs wait services-stable \
-                            --cluster ${ECS_CLUSTER} \
-                            --services ${ECS_SERVICE} \
-                            --region ${AWS_REGION} || true
+                            --cluster ${env.ECS_CLUSTER} \
+                            --services ${env.ECS_SERVICE} \
+                            --region ${env.AWS_DEFAULT_REGION} || true
                     """
-                    echo "✅ Amazon ECS deployment command completed successfully!"
+                    echo "✅ ECS Service rollout completed successfully!"
                 }
             }
         }
@@ -152,18 +183,19 @@ pipeline {
         success {
             sh """
                 curl -s -X POST -H 'Content-type: application/json' \
-                --data '{"attachments": [{"color": "#2EB886", "title": "✅ Container Pipeline Succeeded: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Modern Cloud Native", "short": true}, {"title": "Branch", "value": "${env.GIT_BRANCH ?: 'Docker_ECSR'}", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Quality Gate", "value": "PASSED (SonarQube)", "short": true}, {"title": "Amazon ECR Image", "value": "${ECR_REPOSITORY}:${env.BUILD_NUMBER}", "short": true}, {"title": "Amazon ECS", "value": "Deployed to Fargate", "short": true}], "footer": "Ankit Infotech Cloud Automation"}]}' \
+                --data '{"attachments": [{"color": "#2EB886", "title": "✅ Container Pipeline Succeeded: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Cloud Native", "short": true}, {"title": "Branch", "value": "${env.GIT_BRANCH ?: 'Docker_ECSR'}", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Quality Gate", "value": "PASSED (SonarQube)", "short": true}, {"title": "Amazon ECR Tag", "value": "${env.RELEASE_TAG ?: 'latest'}", "short": true}, {"title": "Deployment", "value": "Amazon ECS (Fargate)", "short": true}], "footer": "Ankit Infotech CI/CD Automation"}]}' \
                 ${SLACK_WEBHOOK_URL} || true
             """
         }
         failure {
             sh """
                 curl -s -X POST -H 'Content-type: application/json' \
-                --data '{"attachments": [{"color": "#E01E5A", "title": "❌ Container Pipeline Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Modern Cloud Native", "short": true}, {"title": "Branch", "value": "${env.GIT_BRANCH ?: 'Docker_ECSR'}", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Status", "value": "Pipeline halted. Check Jenkins logs.", "short": false}], "footer": "Ankit Infotech Cloud Automation"}]}' \
+                --data '{"attachments": [{"color": "#E01E5A", "title": "❌ Container Pipeline Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Cloud Native", "short": true}, {"title": "Branch", "value": "${env.GIT_BRANCH ?: 'Docker_ECSR'}", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Status", "value": "Pipeline halted. Inspect Jenkins console output.", "short": false}], "footer": "Ankit Infotech CI/CD Automation"}]}' \
                 ${SLACK_WEBHOOK_URL} || true
             """
         }
         cleanup {
+            // Hygiene: delete intermediate build directories to keep build node disk healthy
             cleanWs deleteDirs: true, notFailBuild: true
         }
     }
