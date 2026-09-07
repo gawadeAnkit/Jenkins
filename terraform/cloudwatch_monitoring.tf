@@ -86,6 +86,45 @@ resource "aws_cloudwatch_dashboard" "main" {
           region = var.aws_region
           title  = "Network Egress (Bytes)"
         }
+      },
+      {
+        type   = "metric"
+        x      = 0
+        y      = 12
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/ECS", "CPUUtilization", "ServiceName", aws_ecs_service.vprofile_service.name, "ClusterName", aws_ecs_cluster.vprofile_cluster.name, { "label": "ECS CPU (%)", "color": "#1f77b4" }],
+            ["AWS/ECS", "MemoryUtilization", "ServiceName", aws_ecs_service.vprofile_service.name, "ClusterName", aws_ecs_cluster.vprofile_cluster.name, { "label": "ECS Memory (%)", "color": "#2ca02c" }]
+          ]
+          period = 60
+          stat   = "Average"
+          region = var.aws_region
+          title  = "ECS Fargate Resource Utilization (%)"
+          yAxis = {
+            left = {
+              min = 0
+              max = 100
+            }
+          }
+        }
+      },
+      {
+        type   = "metric"
+        x      = 12
+        y      = 12
+        width  = 12
+        height = 6
+        properties = {
+          metrics = [
+            ["AWS/ApplicationELB", "RequestCount", "LoadBalancer", aws_lb.vprofile_alb.arn_suffix, { "label": "Total Requests", "stat": "Sum" }],
+            ["AWS/ApplicationELB", "TargetResponseTime", "LoadBalancer", aws_lb.vprofile_alb.arn_suffix, { "label": "Avg Response Time (s)", "stat": "Average" }]
+          ]
+          period = 60
+          region = var.aws_region
+          title  = "Application Load Balancer Traffic & Latency"
+        }
       }
     ]
   })

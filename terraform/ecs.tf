@@ -57,11 +57,12 @@ resource "aws_security_group" "ecs_tasks_sg" {
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    description = "Allow HTTP on port 8080"
-    from_port   = 8080
-    to_port     = 8080
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = "Allow HTTP traffic from ALB on port 8080"
+    from_port       = 8080
+    to_port         = 8080
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb_sg.id]
+    cidr_blocks     = [data.aws_vpc.default.cidr_block]
   }
 
   egress {
@@ -84,8 +85,8 @@ resource "aws_ecs_task_definition" "vprofile_task" {
   family                   = "vprofile-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "256" # 0.25 vCPU
-  memory                   = "512" # 512 MB
+  cpu                      = "512"  # 0.5 vCPU
+  memory                   = "1024" # 1024 MB (Provides JVM headroom for fast Spring 6 initialization)
   execution_role_arn       = aws_iam_role.ecs_execution_role.arn
 
   container_definitions = jsonencode([
@@ -132,8 +133,9 @@ resource "aws_ecs_service" "vprofile_service" {
   name            = "vprofile-service"
   cluster         = aws_ecs_cluster.vprofile_cluster.id
   task_definition = aws_ecs_task_definition.vprofile_task.arn
-  desired_count   = 1
-  launch_type     = "FARGATE"
+  desired_count                     = 1
+  launch_type                       = "FARGATE"
+  health_check_grace_period_seconds = 180
 
   network_configuration {
     subnets          = data.aws_subnets.default.ids
@@ -141,8 +143,21 @@ resource "aws_ecs_service" "vprofile_service" {
     assign_public_ip = true
   }
 
+  load_balancer {
+    target_group_arn = aws_lb_target_group.vprofile_tg.arn
+    container_name   = "vprofile-web"
+    container_port   = 8080
+  }
+
+  lifecycle {
+    ignore_changes = [
+      desired_count
+    ]
+  }
+
   depends_on = [
-    aws_iam_role_policy_attachment.ecs_execution_policy
+    aws_iam_role_policy_attachment.ecs_execution_policy,
+    aws_lb_listener.vprofile_listener
   ]
 
   tags = {

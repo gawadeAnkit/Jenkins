@@ -22,3 +22,14 @@ output "get_initial_admin_password_command" {
   description = "Command to retrieve the initial Jenkins admin unlock password"
   value       = "ssh -i jenkins-key.pem ubuntu@${aws_instance.jenkins_server.public_ip} cat /home/ubuntu/jenkins_initial_admin_password.txt"
 }
+
+output "vprofile_alb_dns_name" {
+  description = "Permanent DNS Name of the Application Load Balancer"
+  value       = aws_lb.vprofile_alb.dns_name
+}
+
+output "vprofile_app_url" {
+  description = "Permanent live URL for the VProfile Application (Port 80)"
+  value       = "http://${aws_lb.vprofile_alb.dns_name}"
+}
+
