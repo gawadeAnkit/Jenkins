@@ -59,6 +59,14 @@ resource "aws_instance" "sonarqube_server" {
 
   user_data = file("${path.module}/scripts/sonarqube-install.sh")
 
+  lifecycle {
+    ignore_changes = [
+      associate_public_ip_address,
+      ami,
+      user_data
+    ]
+  }
+
   tags = {
     Name        = "SonarQube server"
     Project     = "vprofile"

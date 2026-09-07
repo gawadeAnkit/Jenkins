@@ -132,6 +132,14 @@ resource "aws_instance" "jenkins_server" {
     }
   }
 
+  lifecycle {
+    ignore_changes = [
+      associate_public_ip_address,
+      ami,
+      user_data
+    ]
+  }
+
   tags = {
     Name        = var.instance_name
     Project     = "vprofile"
