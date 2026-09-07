@@ -73,10 +73,6 @@ public class UserController {
         String uname = (username != null && !username.trim().isEmpty()) ? username.trim() : (user != null ? user.getUsername() : null);
         String pwd = (password != null && !password.trim().isEmpty()) ? password.trim() : (user != null ? user.getPassword() : null);
 
-        if ("admin_vp".equals(uname) && "admin_vp".equals(pwd)) {
-            return "redirect:/welcome";
-        }
-
         boolean loginSuccessful = securityService.autologin(uname, pwd);
         if (!loginSuccessful) {
             model.addAttribute("error", "Your username and password is invalid.");

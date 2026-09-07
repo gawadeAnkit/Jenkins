@@ -28,7 +28,7 @@
 		class="com.vprofile.account.service.UserDetailsServiceImpl" />
 
 	<beans:bean id="encoder"
-		class="com.vprofile.account.utils.CustomPasswordEncoder">
+		class="org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder">
 		<beans:constructor-arg name="strength" value="11" />
 	</beans:bean>
 </beans:beans>

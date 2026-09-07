@@ -22,3 +22,16 @@ variable "volume_size" {
   default     = 10
 }
 
+variable "db_username" {
+  description = "Master username for RDS MySQL database"
+  type        = string
+  default     = "admin"
+}
+
+variable "db_password" {
+  description = "Master password for RDS MySQL database"
+  type        = string
+  default     = "admin123"
+  sensitive   = true
+}
+

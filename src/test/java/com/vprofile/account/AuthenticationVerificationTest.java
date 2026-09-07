@@ -1,20 +1,51 @@
 package com.vprofile.account;
 
+import com.vprofile.account.model.Role;
+import com.vprofile.account.model.User;
+import com.vprofile.account.repository.UserRepository;
 import com.vprofile.account.service.UserDetailsServiceImpl;
-import com.vprofile.account.utils.CustomPasswordEncoder;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import java.util.HashSet;
+import java.util.Set;
 
 public class AuthenticationVerificationTest {
 
     @Test
-    public void verifyAdminVpAuthenticationFlowWithoutDatabase() {
-        // 1. Instantiate UserDetailsServiceImpl (pure unit test, no DB, no network)
-        UserDetailsServiceImpl userDetailsService = new UserDetailsServiceImpl();
+    public void verifyStandardBCryptAuthenticationFlowWithDatabaseModel() {
+        // 1. Create Mock UserRepository
+        UserRepository userRepository = Mockito.mock(UserRepository.class);
 
-        // 2. Load user admin_vp
+        // 2. Prepare test user entity as stored in MySQL RDS (accountsdb.sql)
+        User testUser = new User();
+        testUser.setId(4L);
+        testUser.setUsername("admin_vp");
+        // BCrypt hash for "admin_vp"
+        testUser.setPassword("$2a$11$0a7VdTr4rfCQqtsvpng6GuJnzUmQ7gZiHXgzGPgm5hkRa3avXgBLK");
+
+        Set<Role> roles = new HashSet<>();
+        Role userRole = new Role();
+        userRole.setName("ROLE_USER");
+        Role adminRole = new Role();
+        adminRole.setName("ROLE_ADMIN");
+        roles.add(userRole);
+        roles.add(adminRole);
+        testUser.setRoles(roles);
+
+        Mockito.when(userRepository.findByUsername("admin_vp")).thenReturn(testUser);
+
+        // 3. Instantiate Service and inject mock
+        UserDetailsServiceImpl userDetailsService = new UserDetailsServiceImpl();
+        ReflectionTestUtils.setField(userDetailsService, "userRepository", userRepository);
+
+        // 4. Load user from service
         UserDetails userDetails = userDetailsService.loadUserByUsername("admin_vp");
         Assertions.assertNotNull(userDetails, "UserDetails must not be null");
         Assertions.assertEquals("admin_vp", userDetails.getUsername(), "Username must match");
@@ -27,21 +58,25 @@ public class AuthenticationVerificationTest {
             "Must have ROLE_ADMIN authority"
         );
 
-        // 3. Verify CustomPasswordEncoder matches admin_vp
-        CustomPasswordEncoder encoder = new CustomPasswordEncoder(11);
+        // 5. Verify standard BCryptPasswordEncoder matches raw password against hash
+        BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(11);
         boolean passwordMatches = encoder.matches("admin_vp", userDetails.getPassword());
-        Assertions.assertTrue(passwordMatches, "Password 'admin_vp' must match encoder");
+        Assertions.assertTrue(passwordMatches, "Password 'admin_vp' must match BCrypt hash");
 
-        // 4. Verify bad password is rejected
-        boolean wrongPassword = encoder.matches("wrong_password", userDetails.getPassword());
-        Assertions.assertFalse(wrongPassword, "Wrong password must be rejected");
+        // 6. Verify bad password is rejected
+        boolean wrongPassword = encoder.matches("invalid_password", userDetails.getPassword());
+        Assertions.assertFalse(wrongPassword, "Invalid password must be rejected");
 
-        // 5. Create Authentication Token
-        UsernamePasswordAuthenticationToken token = 
+        // 7. Verify security token creation
+        UsernamePasswordAuthenticationToken token =
             new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-        Assertions.assertTrue(token.isAuthenticated(), "Token must be marked authenticated");
-        Assertions.assertEquals(userDetails, token.getPrincipal(), "Principal must be userDetails");
+        Assertions.assertTrue(token.isAuthenticated(), "Token must be authenticated");
 
-        System.out.println("VERIFICATION RESULT: ALL 5 ASSERTIONS PASSED! AUTHENTICATION WORKS 100%!");
+        // 8. Verify non-existent user throws UsernameNotFoundException
+        Assertions.assertThrows(UsernameNotFoundException.class, () -> {
+            userDetailsService.loadUserByUsername("non_existent_user");
+        });
+
+        System.out.println("TEST SUCCESS: 100% standard BCrypt + Database UserDetailsService flow verified!");
     }
 }

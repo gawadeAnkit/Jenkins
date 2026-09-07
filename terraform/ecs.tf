@@ -80,20 +80,68 @@ resource "aws_security_group" "ecs_tasks_sg" {
   }
 }
 
-# 5. ECS Task Definition (Fargate Serverless)
+# 5. ECS Task Definition (Fargate Serverless Multi-Container: Web + Database)
 resource "aws_ecs_task_definition" "vprofile_task" {
   family                   = "vprofile-task"
   network_mode             = "awsvpc"
   requires_compatibilities = ["FARGATE"]
-  cpu                      = "512"  # 0.5 vCPU
-  memory                   = "1024" # 1024 MB (Provides JVM headroom for fast Spring 6 initialization)
+  cpu                      = "1024" # 1 vCPU
+  memory                   = "2048" # 2048 MB (Plenty of headroom for Tomcat + MySQL)
   execution_role_arn       = aws_iam_role.ecs_execution_role.arn
 
   container_definitions = jsonencode([
     {
+      name      = "vprofile-db"
+      image     = "mysql:8.0"
+      essential = true
+
+      portMappings = [
+        {
+          containerPort = 3306
+          hostPort      = 3306
+          protocol      = "tcp"
+        }
+      ]
+
+      environment = [
+        {
+          name  = "MYSQL_ROOT_PASSWORD"
+          value = var.db_password
+        },
+        {
+          name  = "MYSQL_DATABASE"
+          value = "accounts"
+        },
+        {
+          name  = "MYSQL_USER"
+          value = var.db_username
+        },
+        {
+          name  = "MYSQL_PASSWORD"
+          value = var.db_password
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/vprofile-app"
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "vprofile-db"
+        }
+      }
+    },
+    {
       name      = "vprofile-web"
       image     = "${aws_ecr_repository.vprofile_app.repository_url}:latest"
       essential = true
+
+      dependsOn = [
+        {
+          containerName = "vprofile-db"
+          condition     = "START"
+        }
+      ]
 
       portMappings = [
         {
@@ -116,6 +164,26 @@ resource "aws_ecs_task_definition" "vprofile_task" {
         {
           name  = "SPRING_PROFILES_ACTIVE"
           value = "prod"
+        },
+        {
+          name  = "DB_HOST"
+          value = "127.0.0.1"
+        },
+        {
+          name  = "DB_PORT"
+          value = "3306"
+        },
+        {
+          name  = "DB_NAME"
+          value = "accounts"
+        },
+        {
+          name  = "DB_USER"
+          value = var.db_username
+        },
+        {
+          name  = "DB_PASSWORD"
+          value = var.db_password
         }
       ]
     }
