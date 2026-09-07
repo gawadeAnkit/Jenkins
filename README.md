@@ -10,8 +10,7 @@
 [![SonarQube](https://img.shields.io/badge/SonarQube-Quality%20Gate-4B9FD5.svg)]()
 [![Terraform](https://img.shields.io/badge/Terraform-IaC-844FBA.svg)]()
 
-> **Project Author:** Ankit Gawade  
-> **Repository:** [https://github.com/gawadeAnkit/Jenkins](https://github.com/gawadeAnkit/Jenkins)  
+> **Project Author:** Ankit Gawade 
 > **Active Branch:** `Docker_ECSR`
 
 A modern, cloud-native Continuous Integration & Continuous Deployment (CI/CD) pipeline on AWS. This architecture packages the Java 17 / Spring 6 VProfile application into Docker containers, enforces static code analysis and quality gates via SonarQube, publishes versioned container images to Amazon Elastic Container Registry (ECR), and executes zero-downtime rolling deployments on Amazon Elastic Container Service (ECS Fargate).
