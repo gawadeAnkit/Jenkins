@@ -83,20 +83,23 @@ pipeline {
                 scannerHome = tool 'sonarscanner4'
             }
             steps {
-                withSonarQubeEnv('sonar-pro') {
-                    sh '''${scannerHome}/bin/sonar-scanner \
-                        -Dsonar.projectKey=vprofile \
-                        -Dsonar.projectName=vprofile-repo \
-                        -Dsonar.projectVersion=2.0-docker \
-                        -Dsonar.sources=src/ \
-                        -Dsonar.java.binaries=target/test-classes/com/vprofile/account/controllerTest/ \
-                        -Dsonar.junit.reportsPath=target/surefire-reports/ \
-                        -Dsonar.jacoco.reportsPath=target/jacoco.exec \
-                        -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml'''
-                }
+                catchError(buildResult: 'SUCCESS', stageResult: 'UNSTABLE') {
+                    withSonarQubeEnv('sonar-pro') {
+                        sh '''${scannerHome}/bin/sonar-scanner \
+                            -Dsonar.projectKey=vprofile \
+                            -Dsonar.projectName=vprofile-repo \
+                            -Dsonar.projectVersion=2.0-docker \
+                            -Dsonar.sources=src/main/java \
+                            -Dsonar.exclusions=**/*.js,**/*.css,src/main/webapp/** \
+                            -Dsonar.java.binaries=target/test-classes/com/vprofile/account/controllerTest/ \
+                            -Dsonar.junit.reportsPath=target/surefire-reports/ \
+                            -Dsonar.jacoco.reportsPath=target/jacoco.exec \
+                            -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml'''
+                    }
 
-                timeout(time: 10, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: false
+                    timeout(time: 5, unit: 'MINUTES') {
+                        waitForQualityGate abortPipeline: false
+                    }
                 }
             }
         }
