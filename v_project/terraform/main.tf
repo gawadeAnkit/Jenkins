@@ -76,7 +76,7 @@ resource "aws_key_pair" "jenkins_key" {
 # ------------------------------------------------------------------------------
 resource "aws_security_group" "jenkins_sg" {
   name        = "jenkins-server-sg"
-  description = "Security group for Jenkins CI/CD controller"
+  description = "Security group for Jenkins server (Port 22 & 8080)"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
@@ -96,7 +96,7 @@ resource "aws_security_group" "jenkins_sg" {
   }
 
   egress {
-    description = "Outbound traffic for repositories and packages"
+    description = "Allow all outbound traffic"
     from_port   = 0
     to_port     = 0
     protocol    = "-1"

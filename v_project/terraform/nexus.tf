@@ -3,7 +3,7 @@
 # ==============================================================================
 resource "aws_security_group" "nexus_sg" {
   name        = "nexus-server-sg"
-  description = "Security group for Nexus Repository Manager"
+  description = "Security group for Nexus Repository Manager (Ports 22 & 8081 only)"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {

@@ -74,7 +74,8 @@ The Jenkins pipeline (`v_project/Jenkinsfile`) executes the following automated 
 4. **Code Quality Analysis:** Evaluates project code standards using Maven Checkstyle.
 5. **SonarQube Quality Gate:** Sends source code metrics to SonarQube Scanner and halts the pipeline if quality criteria are unmet.
 6. **Publish to Nexus:** Generates dynamic build versions (`${BUILD_ID}-${TIMESTAMP}`) and uploads both the `.war` and `pom.xml` to Nexus repository `vprofile-release`.
-7. **Workspace Cleanup:** Executes `cleanWs()` in post-build actions to maintain disk hygiene across build nodes.
+7. **Real-Time Slack Notifications:** Dispatches rich notification cards (Pipeline Started, Succeeded, Failed) to Slack with build numbers, commit hashes, SonarQube Quality Gate status, and direct Jenkins console links.
+8. **Workspace Cleanup:** Executes `cleanWs()` in post-build actions to maintain disk hygiene across build nodes.
 
 ---
 
@@ -92,7 +93,7 @@ Configuration management and application deployment are automated via Ansible pl
 ```text
 ├── README.md                      # Root project documentation
 ├── v_project/
-│   ├── Jenkinsfile                # Jenkins Declarative Pipeline definition
+│   ├── Jenkinsfile                # Jenkins Declarative Pipeline definition (with Slack alerts)
 │   ├── pom.xml                    # Maven project configuration (Java 17, Spring 6)
 │   ├── ansible/                   # Ansible configuration management
 │   │   ├── inventory              # Target host definitions
@@ -104,6 +105,7 @@ Configuration management and application deployment are automated via Ansible pl
 │   │   ├── sonarqube.tf           # SonarQube infrastructure
 │   │   ├── nexus.tf               # Nexus 3 infrastructure
 │   │   ├── app_server.tf          # Tomcat application host infrastructure
+│   │   ├── cloudwatch_monitoring.tf # CloudWatch monitoring dashboard & alarms
 │   │   ├── variables.tf           # Configuration variables
 │   │   └── scripts/               # Server initialization bootstrap scripts
 │   ├── scripts/                   # Local lab management scripts

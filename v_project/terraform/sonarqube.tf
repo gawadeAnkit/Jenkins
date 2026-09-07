@@ -3,7 +3,7 @@
 # ==============================================================================
 resource "aws_security_group" "sonarqube_sg" {
   name        = "sonarqube-server-sg"
-  description = "Security group for SonarQube Server"
+  description = "Security group for SonarQube Server (Ports 22 & 9000 only)"
   vpc_id      = data.aws_vpc.default.id
 
   ingress {

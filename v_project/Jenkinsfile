@@ -23,6 +23,7 @@ pipeline {
         NEXUS_REPO_ID       = "vprofile-release"
         NEXUS_CREDENTIAL_ID = "nexuslogin"
         MAVEN_OPTS          = "-Xms256m -Xmx1024m"
+        SLACK_WEBHOOK_URL   = credentials('slack-webhook-url')
     }
 
     stages {
@@ -35,6 +36,13 @@ pipeline {
                     }
                     echo "✅ Verified: Branch is '${env.GIT_BRANCH}'. Proceeding with CI/CD pipeline."
                 }
+
+                // Send Slack notification: Pipeline Started
+                sh """
+                    curl -s -X POST -H 'Content-type: application/json' \
+                    --data '{"attachments": [{"color": "#3AA3E3", "title": "🚀 Pipeline Started: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Enterprise CI/CD", "short": true}, {"title": "Branch", "value": "main", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Status", "value": "Build & Verification in progress...", "short": false}], "footer": "Ankit Infotech CI/CD Automation"}]}' \
+                    ${SLACK_WEBHOOK_URL} || true
+                """
             }
         }
 
@@ -149,7 +157,21 @@ pipeline {
     }
 
     post {
-        always {
+        success {
+            sh """
+                curl -s -X POST -H 'Content-type: application/json' \
+                --data '{"attachments": [{"color": "#2EB886", "title": "✅ Pipeline Succeeded: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Enterprise CI/CD", "short": true}, {"title": "Branch", "value": "main", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "SonarQube Quality Gate", "value": "PASSED", "short": true}, {"title": "Nexus Repository", "value": "Artifact Published", "short": true}], "footer": "Ankit Infotech CI/CD Automation"}]}' \
+                ${SLACK_WEBHOOK_URL} || true
+            """
+        }
+        failure {
+            sh """
+                curl -s -X POST -H 'Content-type: application/json' \
+                --data '{"attachments": [{"color": "#E01E5A", "title": "❌ Pipeline Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Enterprise CI/CD", "short": true}, {"title": "Branch", "value": "main", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Status", "value": "Build failed. Inspect Jenkins console log.", "short": false}], "footer": "Ankit Infotech CI/CD Automation"}]}' \
+                ${SLACK_WEBHOOK_URL} || true
+            """
+        }
+        cleanup {
             cleanWs deleteDirs: true, notFailBuild: true
         }
     }
