@@ -9,7 +9,7 @@ pipeline {
     options {
         timestamps()                     // Prepend timestamps to every console log line
         timeout(time: 30, unit: 'MINUTES') // Failsafe against hanging processes
-        buildDiscarder(logRotator(numToKeepStr: '15')) // Retain only last 15 builds to conserve disk
+        buildDiscarder(logRotator(numToKeepStr: '1', artifactNumToKeepStr: '0')) // Retain only the single latest build and 0 local artifacts (Amazon ECR is the release repository)
     }
 
     tools {
@@ -52,11 +52,6 @@ pipeline {
             steps {
                 echo "Compiling Java 17 source code & packaging WAR artifact..."
                 sh 'mvn clean package -DskipTests'
-            }
-            post {
-                success {
-                    archiveArtifacts artifacts: 'target/*.war', fingerprint: true
-                }
             }
         }
 
@@ -185,8 +180,18 @@ pipeline {
             """
         }
         cleanup {
-            // Hygiene: delete intermediate build directories to keep build node disk healthy
+            // 1. Clean workspace directory (deletes target/*.war and compiled classes)
             cleanWs deleteDirs: true, notFailBuild: true
+
+            // 2. Automated Docker hygiene: remove unique release tag and dangling cache to safeguard the 10GB disk
+            sh """
+                echo "🧹 Running automated container & disk hygiene..."
+                if [ -n "\${IMAGE_URI}" ] && [ -n "\${RELEASE_TAG}" ]; then
+                    docker rmi "\${IMAGE_URI}:\${RELEASE_TAG}" 2>/dev/null || true
+                fi
+                docker image prune -f || true
+                docker builder prune -f --filter "until=1h" || true
+            """
         }
     }
 }
