@@ -31,16 +31,20 @@ public class SecurityServiceImpl implements SecurityService {
 
     @Override
     public boolean autologin(final String username, final String password) {
-        UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-        UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
-                new UsernamePasswordAuthenticationToken(userDetails, password, userDetails.getAuthorities());
+        try {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            UsernamePasswordAuthenticationToken usernamePasswordAuthenticationToken =
+                    new UsernamePasswordAuthenticationToken(userDetails, password, userDetails.getAuthorities());
 
-        authenticationManager.authenticate(usernamePasswordAuthenticationToken);
+            authenticationManager.authenticate(usernamePasswordAuthenticationToken);
 
-        if (usernamePasswordAuthenticationToken.isAuthenticated()) {
-            SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
-            logger.debug(String.format("Auto login %s successfully!", username));
-            return true;
+            if (usernamePasswordAuthenticationToken.isAuthenticated()) {
+                SecurityContextHolder.getContext().setAuthentication(usernamePasswordAuthenticationToken);
+                logger.debug(String.format("Auto login %s successfully!", username));
+                return true;
+            }
+        } catch (Exception e) {
+            logger.error("Authentication failed for user: " + username, e);
         }
         logger.debug(String.format("Auto login %s failed!", username));
         return false;

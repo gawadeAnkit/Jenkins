@@ -16,8 +16,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BadCredentialsException.class)
     public String handleBadCredentialsException(BadCredentialsException ex, HttpServletRequest request) {
-        request.setAttribute("errorMessage", "Invalid username or password.");
-        return "forward:/WEB-INF/views/error/500.jsp"; // You can choose a different page for BadCredentialsException if preferred
+        return "redirect:/login?error";
+    }
+
+    @ExceptionHandler(org.springframework.security.core.userdetails.UsernameNotFoundException.class)
+    public String handleUsernameNotFoundException(org.springframework.security.core.userdetails.UsernameNotFoundException ex, HttpServletRequest request) {
+        return "redirect:/login?error";
     }
 
     @ExceptionHandler(Exception.class)
