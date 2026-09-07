@@ -54,7 +54,7 @@ public class UserController {
         return "redirect:/welcome";
     }
 
-    @GetMapping("/")
+    @GetMapping({"/", "/login"})
     public String login(Model model, @RequestParam(value = "error", required = false) String error,
                         @RequestParam(value = "logout", required = false) String logout) {
         if (error != null) {

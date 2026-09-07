@@ -60,6 +60,14 @@ public class UserControllerTest {
     }
 
     @Test
+    public void loginPathTestHappyFlow() throws Exception {
+        mockMvc.perform(get("/login"))
+                .andExpect(status().isOk())
+                .andExpect(view().name("login"))
+                .andExpect(forwardedUrl("login"));
+    }
+
+    @Test
     public void welcomeTestHappyFlow() throws Exception {
         mockMvc.perform(get("/welcome"))
                 .andExpect(status().isOk())
