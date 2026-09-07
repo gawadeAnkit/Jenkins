@@ -30,10 +30,10 @@ flowchart LR
         GitHub -->|Webhook Trigger| Jenkins["Jenkins Controller"]
         
         Jenkins --> S1["1. Fetch Code\n(git checkout)"]
-        S1 --> S2["2. Unit Test\n(Maven)"]
-        S2 --> S3["3. Checkstyle\n(Maven)"]
-        S3 --> S4["4. Code Analysis\n(SonarQube Quality Gate)"]
-        S4 --> S5["5. Docker Build\n(Artifacts -> Container)"]
+        S1 --> S2["2. Build Artifact\n(Maven Package)"]
+        S2 --> S3["3. Test & Quality\n(JUnit & Checkstyle)"]
+        S3 --> S4["4. Static Analysis\n(SonarQube Quality Gate)"]
+        S4 --> S5["5. Docker Build\n(Hardened Container)"]
     end
 
     subgraph AWS["AWS Cloud Infrastructure"]
@@ -43,7 +43,38 @@ flowchart LR
         ECS --> App["Live App\n(Port 8080)"]
     end
 
-    CI -.-> Slack["Slack Channel\n(Real-time Alerts)"]
+    CI -.-> Slack["Slack Channel\n(Real-Time Alerts)"]
+```
+
+---
+
+## Enterprise Repository Structure
+
+```
+├── .dockerignore                 # Excludes build caches from Docker context
+├── .gitignore                    # Enterprise Git ignore rules
+├── Dockerfile                    # Production CIS-hardened Tomcat 10 / Java 17 container
+├── Jenkinsfile                   # 7-stage DevSecOps declarative pipeline
+├── pom.xml                       # Maven build descriptor (Java 17 / Spring 6)
+├── README.md                     # Architecture documentation & runbooks
+├── src/                          # Application source code & test suites
+│   ├── main/java/com/vprofile/
+│   ├── main/resources/
+│   └── test/
+├── terraform/                    # Infrastructure as Code (IaC)
+│   ├── cloudwatch_monitoring.tf  # Free-tier dashboard & alarms
+│   ├── ecr.tf                    # Amazon ECR container registry
+│   ├── ecs.tf                    # Amazon ECS Fargate cluster & service
+│   ├── main.tf                   # VPC, Subnet & Key pairs
+│   ├── outputs.tf                # Exported endpoints & connection commands
+│   ├── provider.tf               # AWS Provider configurations
+│   ├── variables.tf              # Configurable variables
+│   ├── terraform.tfvars.example  # Example variable definitions
+│   └── scripts/                  # Automated EC2 server bootstrap scripts
+└── scripts/                      # Operational Automation Scripts
+    ├── start-lab.ps1             # Starts stopped instances & displays live endpoints
+    ├── stop-lab.ps1              # Stops all instances ($0.00 compute charges)
+    └── destroy-lab.ps1           # Full teardown script
 ```
 
 ---
@@ -52,46 +83,40 @@ flowchart LR
 
 | Stage | Tooling | Description |
 | :--- | :--- | :--- |
-| **1. Fetch Code** | Git / GitHub | Checks out the target branch (`Docker_ECSR`) and dispatches pipeline start alert to Slack. |
-| **2. Unit Test** | Maven 3.9 / JUnit 4 | Executes unit test suites and validates application business logic. |
-| **3. Checkstyle** | Maven Checkstyle | Validates source code formatting, naming conventions, and syntax standards. |
-| **4. Code Analysis** | SonarQube Scanner 4 | Audits code complexity, security vulnerabilities, code smells, and enforces Quality Gate. |
-| **5. Docker Build** | Docker / Tomcat 10 | Packages the Maven WAR artifact (`vprofile-v2.war`) into a Tomcat 10 runtime container image. |
-| **6. Push to ECR** | AWS CLI / Docker | Authenticates with AWS ECR and pushes tagged release images (`${BUILD_NUMBER}` and `latest`). |
+| **1. Initialize & Fetch** | Git / GitHub | Checks out branch `Docker_ECSR` and dispatches start alert to Slack. |
+| **2. Build Artifact** | Maven 3.9 | Compiles Java 17 source code and packages `target/vprofile-v2.war`. |
+| **3. Quality Assurance** | JUnit & Checkstyle | Runs unit tests and verifies code styling standards in parallel. |
+| **4. Static Analysis** | SonarQube Scanner | Audits code complexity, security vulnerabilities, and enforces Quality Gate. |
+| **5. Docker Build** | Docker / Tomcat 10 | Builds hardened, non-root container image tagged with `${BUILD_NUMBER}-${SHA}` and `latest`. |
+| **6. Publish to ECR** | AWS CLI / Docker | Authenticates with AWS ECR and pushes release container images. |
 | **7. ECS Deploy** | AWS ECS / Fargate | Triggers a zero-downtime rolling deployment (`aws ecs update-service --force-new-deployment`). |
 
 ---
 
-## Infrastructure as Code (Terraform)
-
-The cloud-native container infrastructure is defined in `v_project/terraform/`:
-
-* **`ecr.tf`:** Provisions private repository `vprofile-app` with image scan on push and 14-day lifecycle expiration policy to preserve Free Tier limits.
-* **`ecs.tf`:** Provisions serverless Amazon ECS Fargate cluster `vprofile-cluster`, CloudWatch logs `/ecs/vprofile-app`, IAM execution role, container task definition (0.25 vCPU, 512 MB RAM), and public-facing ECS service.
-* **`cloudwatch_monitoring.tf`:** CloudWatch dashboard and alarm monitors for CPU, memory, and container health metrics.
-
----
-
-## Deployment & Verification
+## Local Verification Runbook
 
 ### 1. Build and Run Container Locally
 ```bash
-cd v_project
+# Compile and build container image
 mvn clean package -DskipTests
 docker build -t vprofile-app:local .
+
+# Run container on port 8080
 docker run -d -p 8080:8080 --name vprofile vprofile-app:local
-# Visit http://localhost:8080/
+
+# Verify in browser
+curl -I http://localhost:8080/
 ```
 
-### 2. Deploy Infrastructure via Terraform
+### 2. Deploy Cloud Infrastructure via Terraform
 ```bash
-cd v_project/terraform
+cd terraform
 terraform init
 terraform plan
 terraform apply
 ```
 
-### 3. Automated Trigger
+### 3. Automated CI/CD Trigger
 Push any change to the `Docker_ECSR` branch:
 ```bash
 git add .

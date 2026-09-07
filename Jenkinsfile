@@ -9,7 +9,7 @@ pipeline {
     options {
         timestamps()                     // Prepend timestamps to every console log line
         timeout(time: 30, unit: 'MINUTES') // Failsafe against hanging processes
-        buildDiscarder(logRotator(numToKeepStr: '15')) // Retain only the last 15 builds to conserve disk
+        buildDiscarder(logRotator(numToKeepStr: '15')) // Retain only last 15 builds to conserve disk
     }
 
     tools {
@@ -50,14 +50,12 @@ pipeline {
 
         stage('2. BUILD ARTIFACT') {
             steps {
-                dir('v_project') {
-                    echo "Compiling Java 17 source code & packaging WAR artifact..."
-                    sh 'mvn clean package -DskipTests'
-                }
+                echo "Compiling Java 17 source code & packaging WAR artifact..."
+                sh 'mvn clean package -DskipTests'
             }
             post {
                 success {
-                    archiveArtifacts artifacts: 'v_project/target/*.war', fingerprint: true
+                    archiveArtifacts artifacts: 'target/*.war', fingerprint: true
                 }
             }
         }
@@ -66,24 +64,20 @@ pipeline {
             parallel {
                 stage('Unit & Integration Tests') {
                     steps {
-                        dir('v_project') {
-                            echo "Executing JUnit test suites..."
-                            sh 'mvn test'
-                        }
+                        echo "Executing JUnit test suites..."
+                        sh 'mvn test'
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, testResults: 'v_project/target/surefire-reports/*.xml'
+                            junit allowEmptyResults: true, testResults: 'target/surefire-reports/*.xml'
                         }
                     }
                 }
 
                 stage('Checkstyle Code Standards') {
                     steps {
-                        dir('v_project') {
-                            echo "Auditing code formatting & style standards..."
-                            sh 'mvn checkstyle:checkstyle'
-                        }
+                        echo "Auditing code formatting & style standards..."
+                        sh 'mvn checkstyle:checkstyle'
                     }
                 }
             }
@@ -94,47 +88,43 @@ pipeline {
                 scannerHome = tool 'sonarscanner4'
             }
             steps {
-                dir('v_project') {
-                    withSonarQubeEnv('sonar-pro') {
-                        sh '''${scannerHome}/bin/sonar-scanner \
-                            -Dsonar.projectKey=vprofile \
-                            -Dsonar.projectName=vprofile-repo \
-                            -Dsonar.projectVersion=2.0-docker \
-                            -Dsonar.sources=src/ \
-                            -Dsonar.java.binaries=target/test-classes/com/vprofile/account/controllerTest/ \
-                            -Dsonar.junit.reportsPath=target/surefire-reports/ \
-                            -Dsonar.jacoco.reportsPath=target/jacoco.exec \
-                            -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml'''
-                    }
+                withSonarQubeEnv('sonar-pro') {
+                    sh '''${scannerHome}/bin/sonar-scanner \
+                        -Dsonar.projectKey=vprofile \
+                        -Dsonar.projectName=vprofile-repo \
+                        -Dsonar.projectVersion=2.0-docker \
+                        -Dsonar.sources=src/ \
+                        -Dsonar.java.binaries=target/test-classes/com/vprofile/account/controllerTest/ \
+                        -Dsonar.junit.reportsPath=target/surefire-reports/ \
+                        -Dsonar.jacoco.reportsPath=target/jacoco.exec \
+                        -Dsonar.java.checkstyle.reportPaths=target/checkstyle-result.xml'''
+                }
 
-                    timeout(time: 10, unit: 'MINUTES') {
-                        waitForQualityGate abortPipeline: true
-                    }
+                timeout(time: 10, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
                 }
             }
         }
 
         stage('5. DOCKER CONTAINERIZATION') {
             steps {
-                dir('v_project') {
-                    script {
-                        // Dynamically discover AWS Account ID (avoids hardcoding secrets/credentials)
-                        env.AWS_ACCOUNT_ID = sh(
-                            script: "aws sts get-caller-identity --query 'Account' --output text 2>/dev/null || echo '851706351853'",
-                            returnStdout: true
-                        ).trim()
+                script {
+                    // Dynamically discover AWS Account ID (avoids hardcoding secrets/credentials)
+                    env.AWS_ACCOUNT_ID = sh(
+                        script: "aws sts get-caller-identity --query 'Account' --output text 2>/dev/null || echo '851706351853'",
+                        returnStdout: true
+                    ).trim()
 
-                        env.ECR_REGISTRY = "${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com"
-                        env.IMAGE_URI    = "${env.ECR_REGISTRY}/${env.ECR_REPOSITORY}"
-                        env.SHORT_SHA    = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : "b${env.BUILD_NUMBER}"
-                        env.RELEASE_TAG  = "${env.BUILD_NUMBER}-${env.SHORT_SHA}"
+                    env.ECR_REGISTRY = "${env.AWS_ACCOUNT_ID}.dkr.ecr.${env.AWS_DEFAULT_REGION}.amazonaws.com"
+                    env.IMAGE_URI    = "${env.ECR_REGISTRY}/${env.ECR_REPOSITORY}"
+                    env.SHORT_SHA    = env.GIT_COMMIT ? env.GIT_COMMIT.take(7) : "b${env.BUILD_NUMBER}"
+                    env.RELEASE_TAG  = "${env.BUILD_NUMBER}-${env.SHORT_SHA}"
 
-                        echo "Building Docker Image: ${env.IMAGE_URI}:${env.RELEASE_TAG}..."
-                        sh "docker build -t ${env.IMAGE_URI}:${env.RELEASE_TAG} -t ${env.IMAGE_URI}:latest ."
+                    echo "Building Docker Image: ${env.IMAGE_URI}:${env.RELEASE_TAG}..."
+                    sh "docker build -t ${env.IMAGE_URI}:${env.RELEASE_TAG} -t ${env.IMAGE_URI}:latest ."
 
-                        echo "Verifying local Docker image..."
-                        sh "docker images | grep ${env.ECR_REPOSITORY} || true"
-                    }
+                    echo "Verifying local Docker image..."
+                    sh "docker images | grep ${env.ECR_REPOSITORY} || true"
                 }
             }
         }

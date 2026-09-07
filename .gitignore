@@ -1,0 +1,36 @@
+# ==============================================================================
+# Enterprise .gitignore for Java / Maven / Terraform / Docker
+# Project: VProfile Enterprise CI/CD
+# ==============================================================================
+
+# Compiled Java & Maven Build Artifacts
+target/
+*.war
+*.jar
+*.class
+*.ear
+
+# Logs & Test Reports
+*.log
+surefire-reports/
+jacoco.exec
+checkstyle-result.xml
+
+# Terraform State & Keys (Strictly Keep Secrets Out of Git)
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/*.tfstate.backup
+terraform/*.tfvars
+!terraform/terraform.tfvars.example
+terraform/*.pem
+*.pem
+
+# IDE & Editor Directories
+.idea/
+*.iml
+.vscode/
+*.swp
+*~
+.DS_Store
+Thumbs.db
