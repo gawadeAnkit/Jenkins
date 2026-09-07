@@ -1,159 +1,101 @@
-# VProfile Enterprise CI/CD & Automated Infrastructure Pipeline
+# VProfile Cloud-Native Container CI/CD (Docker, Amazon ECR & Amazon ECS)
 
-<!-- Production Deployment Verified by Ankit Gawade -->
-
+[![Branch](https://img.shields.io/badge/Branch-Docker__ECSR-blue.svg)]()
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Java](https://img.shields.io/badge/Java-17-orange.svg)]()
-[![Spring](https://img.shields.io/badge/Spring%20Framework-6.0-green.svg)]()
-[![Jenkins](https://img.shields.io/badge/Jenkins-LTS-red.svg)]()
-[![SonarQube](https://img.shields.io/badge/SonarQube-26.4-blue.svg)]()
-[![Nexus](https://img.shields.io/badge/Nexus-3.78-yellow.svg)]()
-[![Ansible](https://img.shields.io/badge/Ansible-Automation-lightgrey.svg)]()
-[![Terraform](https://img.shields.io/badge/Terraform-IaC-purple.svg)]()
-[![AWS](https://img.shields.io/badge/AWS-Cloud-232F3E.svg)]()
+[![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED.svg)]()
+[![Amazon ECR](https://img.shields.io/badge/Amazon%20ECR-Registry-FF9900.svg)]()
+[![Amazon ECS](https://img.shields.io/badge/Amazon%20ECS-Fargate-FF9900.svg)]()
+[![Jenkins](https://img.shields.io/badge/Jenkins-Declarative%20Pipeline-D24939.svg)]()
+[![SonarQube](https://img.shields.io/badge/SonarQube-Quality%20Gate-4B9FD5.svg)]()
+[![Terraform](https://img.shields.io/badge/Terraform-IaC-844FBA.svg)]()
 
 > **Project Author:** Ankit Gawade  
-> **Repository:** [https://github.com/gawadeAnkit/Jenkins](https://github.com/gawadeAnkit/Jenkins)
+> **Repository:** [https://github.com/gawadeAnkit/Jenkins](https://github.com/gawadeAnkit/Jenkins)  
+> **Active Branch:** `Docker_ECSR`
 
-An enterprise-grade, end-to-end Continuous Integration and Continuous Deployment (CI/CD) pipeline built on AWS. This project provisions multi-server cloud infrastructure via Terraform, compiles and tests a Spring 6 / Java 17 multi-tier web application via Jenkins, enforces static code quality gates via SonarQube, manages release artifacts in Sonatype Nexus 3, and orchestrates zero-downtime application deployments to Apache Tomcat 10 via Ansible.
+A modern, cloud-native Continuous Integration & Continuous Deployment (CI/CD) pipeline on AWS. This architecture packages the Java 17 / Spring 6 VProfile application into Docker containers, enforces static code analysis and quality gates via SonarQube, publishes versioned container images to Amazon Elastic Container Registry (ECR), and executes zero-downtime rolling deployments on Amazon Elastic Container Service (ECS Fargate).
 
 ---
 
-## Architecture Overview
+## Architecture Overview (`Docker_ECSR`)
 
 ```mermaid
-flowchart TD
-    subgraph Developer_Workstation["Developer Environment"]
-        Dev[Ankit Gawade] -->|git push origin main| GitHub[GitHub Repository]
+flowchart LR
+    subgraph DevEnv["Source Code Management"]
+        Dev["Developer (git)"] -->|git push| GitHub["GitHub Repository\n(branch: Docker_ECSR)"]
     end
 
-    subgraph AWS_Cloud["AWS VPC Infrastructure (IaC by Terraform)"]
-        GitHub -->|Webhook / Poll SCM| Jenkins[Jenkins CI Controller]
-
-        subgraph CI_Pipeline["Jenkins Declarative Pipeline"]
-            Jenkins -->|1. Build & Compile| Maven[Maven 3.9 / Java 17]
-            Maven -->|2. Automated Tests| Tests[JUnit & Integration Tests]
-            Tests -->|3. Code Standards| Checkstyle[Checkstyle Analysis]
-            Checkstyle -->|4. Quality Gate| Sonar[SonarQube Server]
-            Sonar -->|5. Publish WAR Artifact| Nexus[Sonatype Nexus 3]
-        end
-
-        subgraph CD_Pipeline["Ansible Deployment Orchestration"]
-            Nexus -->|6. Dynamic Artifact Pull| Ansible[Ansible Engine]
-            Ansible -->|7. Automated Deploy| AppServer[App Server: Tomcat 10]
-        end
-
-        subgraph App_Backend["Application Runtime Stack"]
-            AppServer --> MySQL[(MySQL 8 Database)]
-            AppServer --> Memcached[Memcached Service]
-            AppServer --> RabbitMQ[RabbitMQ Message Broker]
-        end
+    subgraph CI["Jenkins CI/CD Automation"]
+        GitHub -->|Webhook Trigger| Jenkins["Jenkins Controller"]
+        
+        Jenkins --> S1["1. Fetch Code\n(git checkout)"]
+        S1 --> S2["2. Unit Test\n(Maven)"]
+        S2 --> S3["3. Checkstyle\n(Maven)"]
+        S3 --> S4["4. Code Analysis\n(SonarQube Quality Gate)"]
+        S4 --> S5["5. Docker Build\n(Artifacts -> Container)"]
     end
+
+    subgraph AWS["AWS Cloud Infrastructure"]
+        S5 -->|docker push| ECR["Amazon ECR\n(vprofile-app)"]
+        S5 -->|ECS Deploy| ECS["Amazon ECS Cluster\n(vprofile-service / Fargate)"]
+        ECR -->|Pull Image:latest| ECS
+        ECS --> App["Live App\n(Port 8080)"]
+    end
+
+    CI -.-> Slack["Slack Channel\n(Real-time Alerts)"]
 ```
 
 ---
 
-## Infrastructure Topology (Terraform)
+## Pipeline Stages Breakdown
 
-All infrastructure is provisioned as code in `v_project/terraform/`:
-
-| Server Role | Operating System | Specs | Open Ports | Purpose |
-| :--- | :--- | :--- | :--- | :--- |
-| **Jenkins Controller** | Ubuntu 22.04 LTS | `t3.micro` | `22`, `8080` | CI/CD automation & pipeline orchestration |
-| **SonarQube Server** | Ubuntu 22.04 LTS | `t3.micro` | `22`, `9000` | Code smell, security, & Quality Gate analysis |
-| **Nexus 3 Server** | Ubuntu 22.04 LTS | `t3.micro` | `22`, `8081` | Binary artifact repository manager |
-| **Tomcat App Server** | Ubuntu 22.04 LTS | `t3.micro` | `22`, `8080` | Production runtime host (Tomcat 10, MySQL, RabbitMQ) |
-
----
-
-## Pipeline Workflow
-
-The Jenkins pipeline (`v_project/Jenkinsfile`) executes the following automated stages:
-
-1. **SCM Checkout:** Pulls the latest commits from the `main` branch.
-2. **Build:** Packages the Java 17 web application into a deployable Web Archive (`WAR`).
-3. **Unit & Integration Testing:** Executes test suites and generates code coverage reports with JaCoCo.
-4. **Code Quality Analysis:** Evaluates project code standards using Maven Checkstyle.
-5. **SonarQube Quality Gate:** Sends source code metrics to SonarQube Scanner and halts the pipeline if quality criteria are unmet.
-6. **Publish to Nexus:** Generates dynamic build versions (`${BUILD_ID}-${TIMESTAMP}`) and uploads both the `.war` and `pom.xml` to Nexus repository `vprofile-release`.
-7. **Real-Time Slack Notifications:** Dispatches rich notification cards (Pipeline Started, Succeeded, Failed) to Slack with build numbers, commit hashes, SonarQube Quality Gate status, and direct Jenkins console links.
-8. **Workspace Cleanup:** Executes `cleanWs()` in post-build actions to maintain disk hygiene across build nodes.
+| Stage | Tooling | Description |
+| :--- | :--- | :--- |
+| **1. Fetch Code** | Git / GitHub | Checks out the target branch (`Docker_ECSR`) and dispatches pipeline start alert to Slack. |
+| **2. Unit Test** | Maven 3.9 / JUnit 4 | Executes unit test suites and validates application business logic. |
+| **3. Checkstyle** | Maven Checkstyle | Validates source code formatting, naming conventions, and syntax standards. |
+| **4. Code Analysis** | SonarQube Scanner 4 | Audits code complexity, security vulnerabilities, code smells, and enforces Quality Gate. |
+| **5. Docker Build** | Docker / Tomcat 10 | Packages the Maven WAR artifact (`vprofile-v2.war`) into a Tomcat 10 runtime container image. |
+| **6. Push to ECR** | AWS CLI / Docker | Authenticates with AWS ECR and pushes tagged release images (`${BUILD_NUMBER}` and `latest`). |
+| **7. ECS Deploy** | AWS ECS / Fargate | Triggers a zero-downtime rolling deployment (`aws ecs update-service --force-new-deployment`). |
 
 ---
 
-## Deployment Automation (Ansible)
+## Infrastructure as Code (Terraform)
 
-Configuration management and application deployment are automated via Ansible playbooks in `v_project/ansible/`:
+The cloud-native container infrastructure is defined in `v_project/terraform/`:
 
-* **`tomcat_setup.yml`:** Provisions OpenJDK 17, downloads Apache Tomcat 10.1.28, sets up dedicated `tomcat` service accounts, configures systemd unit services, and ensures boot persistence.
-* **`vpro-app-setup.yml`:** Dynamically queries the Nexus REST API for the latest release artifact, performs zero-downtime backup of existing deployments, deploys `ROOT.war`, and verifies successful startup.
+* **`ecr.tf`:** Provisions private repository `vprofile-app` with image scan on push and 14-day lifecycle expiration policy to preserve Free Tier limits.
+* **`ecs.tf`:** Provisions serverless Amazon ECS Fargate cluster `vprofile-cluster`, CloudWatch logs `/ecs/vprofile-app`, IAM execution role, container task definition (0.25 vCPU, 512 MB RAM), and public-facing ECS service.
+* **`cloudwatch_monitoring.tf`:** CloudWatch dashboard and alarm monitors for CPU, memory, and container health metrics.
 
 ---
 
-## Project Structure
+## Deployment & Verification
 
-```text
-├── README.md                      # Root project documentation
-├── v_project/
-│   ├── Jenkinsfile                # Jenkins Declarative Pipeline definition (with Slack alerts)
-│   ├── pom.xml                    # Maven project configuration (Java 17, Spring 6)
-│   ├── ansible/                   # Ansible configuration management
-│   │   ├── inventory              # Target host definitions
-│   │   ├── tomcat_setup.yml       # Tomcat 10 & Java 17 provisioning playbook
-│   │   ├── vpro-app-setup.yml     # Artifact deployment playbook
-│   │   └── templates/             # Systemd service templates
-│   ├── terraform/                 # Infrastructure as Code (AWS)
-│   │   ├── main.tf                # VPC, subnets, keys, & Jenkins definition
-│   │   ├── sonarqube.tf           # SonarQube infrastructure
-│   │   ├── nexus.tf               # Nexus 3 infrastructure
-│   │   ├── app_server.tf          # Tomcat application host infrastructure
-│   │   ├── cloudwatch_monitoring.tf # CloudWatch monitoring dashboard & alarms
-│   │   ├── variables.tf           # Configuration variables
-│   │   └── scripts/               # Server initialization bootstrap scripts
-│   ├── scripts/                   # Local lab management scripts
-│   │   ├── start-lab.ps1          # Powershell script to boot all lab instances
-│   │   ├── stop-lab.ps1           # Powershell script to stop compute hours
-│   │   └── destroy-lab.ps1        # Interactive complete teardown script
-│   └── src/                       # Java application source code
-│       ├── main/java/com/vprofile/account/  # Controllers, Services, & Models
-│       ├── main/resources/                  # Database scripts & app properties
-│       ├── main/webapp/                     # JSP views & Spring configurations
-│       └── test/java/com/vprofile/account/  # Automated unit & integration tests
+### 1. Build and Run Container Locally
+```bash
+cd v_project
+mvn clean package -DskipTests
+docker build -t vprofile-app:local .
+docker run -d -p 8080:8080 --name vprofile vprofile-app:local
+# Visit http://localhost:8080/
 ```
 
----
-
-## Getting Started
-
-### 1. Provision Infrastructure
+### 2. Deploy Infrastructure via Terraform
 ```bash
 cd v_project/terraform
 terraform init
-terraform apply -auto-approve
+terraform plan
+terraform apply
 ```
 
-### 2. Configure CI Pipeline
-* Access Jenkins at `http://<JENKINS_IP>:8080`.
-* Create a new Pipeline job pointing to `https://github.com/gawadeAnkit/Jenkins.git` with script path `v_project/Jenkinsfile`.
-* Add credentials for GitHub, SonarQube, and Nexus.
-
-### 3. Deploy Application
-Run the Ansible deployment playbooks:
+### 3. Automated Trigger
+Push any change to the `Docker_ECSR` branch:
 ```bash
-cd v_project/ansible
-ansible-playbook -i inventory tomcat_setup.yml
-ansible-playbook -i inventory vpro-app-setup.yml
+git add .
+git commit -m "feat: trigger container CI/CD deployment"
+git push origin Docker_ECSR
 ```
-
-### 4. Access the Live Application
-* **Web UI:** `http://<APP_SERVER_IP>:8080/`
-* **Default Admin Account:** `admin_vp` / `admin_vp`
-
----
-
-## Lab Lifecycle Management
-
-To manage cloud resources effectively:
-* **Stop instances:** `.\v_project\scripts\stop-lab.ps1`
-* **Resume instances:** `.\v_project\scripts\start-lab.ps1`
-* **Tear down completely:** `.\v_project\scripts\destroy-lab.ps1`
+GitHub Webhook triggers Jenkins automatically, builds the Docker container, pushes to Amazon ECR, and deploys to Amazon ECS.

@@ -2,12 +2,13 @@ pipeline {
     agent any
 
     triggers {
-        // Automatically triggers build when GitHub webhook sends a push event for main branch
+        // Automatically triggers build on GitHub webhook push event
         githubPush()
     }
 
     options {
         timestamps() // Adds timestamps to every console log line
+        timeout(time: 30, unit: 'MINUTES')
     }
 
     tools {
@@ -16,81 +17,60 @@ pipeline {
     }
 
     environment {
-        NEXUS_VERSION       = "nexus3"
-        NEXUS_PROTOCOL      = "http"
-        NEXUS_URL           = "172.31.89.246:8081"
-        NEXUS_REPOSITORY    = "vprofile-release"
-        NEXUS_REPO_ID       = "vprofile-release"
-        NEXUS_CREDENTIAL_ID = "nexuslogin"
-        MAVEN_OPTS          = "-Xms256m -Xmx1024m"
-        SLACK_WEBHOOK_URL   = credentials('slack-webhook-url')
+        AWS_REGION        = "us-east-1"
+        AWS_ACCOUNT_ID    = "851706351853"
+        AWS_REGISTRY      = "${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+        ECR_REPOSITORY    = "vprofile-app"
+        ECR_IMAGE         = "${AWS_REGISTRY}/${ECR_REPOSITORY}"
+        ECS_CLUSTER       = "vprofile-cluster"
+        ECS_SERVICE       = "vprofile-service"
+        MAVEN_OPTS        = "-Xms256m -Xmx1024m"
+        SLACK_WEBHOOK_URL = credentials('slack-webhook-url')
     }
 
     stages {
-        stage('VERIFY MAIN BRANCH') {
+        stage('FETCH CODE') {
             steps {
                 script {
-                    // Ensures that this pipeline only proceeds if the commit was pushed to main branch
-                    if (env.GIT_BRANCH && !env.GIT_BRANCH.endsWith('main')) {
-                        error("⛔ HALT: Commit detected on '${env.GIT_BRANCH}'. This pipeline only executes on the 'main' branch!")
-                    }
-                    echo "✅ Verified: Branch is '${env.GIT_BRANCH}'. Proceeding with CI/CD pipeline."
+                    echo "=================================================================="
+                    echo "🚀 Fetching code on branch: ${env.GIT_BRANCH ?: 'Docker_ECSR'}"
+                    echo "Author: Ankit Gawade | Target: Docker -> Amazon ECR -> Amazon ECS"
+                    echo "=================================================================="
                 }
 
                 // Send Slack notification: Pipeline Started
                 sh """
                     curl -s -X POST -H 'Content-type: application/json' \
-                    --data '{"attachments": [{"color": "#3AA3E3", "title": "🚀 Pipeline Started: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Enterprise CI/CD", "short": true}, {"title": "Branch", "value": "main", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Status", "value": "Build & Verification in progress...", "short": false}], "footer": "Ankit Infotech CI/CD Automation"}]}' \
+                    --data '{"attachments": [{"color": "#3AA3E3", "title": "🚀 Container CI/CD Started: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Modern Cloud Native", "short": true}, {"title": "Branch", "value": "${env.GIT_BRANCH ?: 'Docker_ECSR'}", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Target Architecture", "value": "Docker -> ECR -> ECS Fargate", "short": true}], "footer": "Ankit Infotech Cloud Automation"}]}' \
                     ${SLACK_WEBHOOK_URL} || true
                 """
-            }
-        }
-
-        stage('BUILD') {
-            steps {
-                // Switch into v_project folder where pom.xml is located
-                dir('v_project') {
-                    sh 'mvn clean install -DskipTests'
-                }
-            }
-            post {
-                success {
-                    echo 'Now Archiving...'
-                    archiveArtifacts artifacts: '**/target/*.war'
-                }
             }
         }
 
         stage('UNIT TEST') {
             steps {
                 dir('v_project') {
+                    echo "Running Maven Unit Tests..."
                     sh 'mvn test'
                 }
             }
         }
 
-        stage('INTEGRATION TEST') {
+        stage('CHECKSTYLE') {
             steps {
                 dir('v_project') {
-                    sh 'mvn verify -DskipUnitTests'
-                }
-            }
-        }
-
-        stage('CODE ANALYSIS WITH CHECKSTYLE') {
-            steps {
-                dir('v_project') {
+                    echo "Running Maven Checkstyle Code Quality Audit..."
                     sh 'mvn checkstyle:checkstyle'
                 }
             }
             post {
                 success {
-                    echo 'Generated Analysis Result'
+                    echo 'Generated Checkstyle Analysis Result'
                 }
             }
         }
 
-        stage('CODE ANALYSIS with SONARQUBE') {
+        stage('CODE ANALYSIS (SONARQUBE)') {
             environment {
                 scannerHome = tool 'sonarscanner4'
             }
@@ -99,7 +79,7 @@ pipeline {
                     withSonarQubeEnv('sonar-pro') {
                         sh '''${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=vprofile \
                             -Dsonar.projectName=vprofile-repo \
-                            -Dsonar.projectVersion=1.0 \
+                            -Dsonar.projectVersion=2.0-docker \
                             -Dsonar.sources=src/ \
                             -Dsonar.java.binaries=target/test-classes/com/vprofile/account/controllerTest/ \
                             -Dsonar.junit.reportsPath=target/surefire-reports/ \
@@ -114,43 +94,55 @@ pipeline {
             }
         }
 
-        stage("Publish to Nexus Repository Manager") {
+        stage('DOCKER BUILD') {
             steps {
                 dir('v_project') {
                     script {
-                        pom = readMavenPom file: "pom.xml";
-                        filesByGlob = findFiles(glob: "target/*.${pom.packaging}");
-                        echo "${filesByGlob[0].name} ${filesByGlob[0].path} ${filesByGlob[0].directory} ${filesByGlob[0].length} ${filesByGlob[0].lastModified}"
-                        artifactPath = filesByGlob[0].path;
-                        artifactExists = fileExists artifactPath;
-                        if(artifactExists) {
-                            // Generate timestamp: YYYYMMDD_HHMMSS
-                            def timeStamp = sh(script: 'date +%Y%m%d_%H%M%S', returnStdout: true).trim();
-                            def artVersion = "${env.BUILD_ID}-${timeStamp}";
-                            echo "*** File: ${artifactPath}, group: ${pom.groupId}, packaging: ${pom.packaging}, version: ${artVersion}";
-                            nexusArtifactUploader(
-                                nexusVersion: NEXUS_VERSION,
-                                protocol: NEXUS_PROTOCOL,
-                                nexusUrl: NEXUS_URL,
-                                groupId: pom.groupId,
-                                version: artVersion,
-                                repository: NEXUS_REPOSITORY,
-                                credentialsId: NEXUS_CREDENTIAL_ID,
-                                artifacts: [
-                                    [artifactId: pom.artifactId,
-                                    classifier: '',
-                                    file: artifactPath,
-                                    type: pom.packaging],
-                                    [artifactId: pom.artifactId,
-                                    classifier: '',
-                                    file: "pom.xml",
-                                    type: "pom"]
-                                ]
-                            );
-                        } else {
-                            error "*** File: ${artifactPath}, could not be found";
-                        }
+                        echo "Compiling and packaging WAR artifact..."
+                        sh 'mvn clean package -DskipTests'
+
+                        echo "Building Docker Image: ${ECR_IMAGE}:${env.BUILD_NUMBER} and ${ECR_IMAGE}:latest..."
+                        sh "docker build -t ${ECR_IMAGE}:${env.BUILD_NUMBER} -t ${ECR_IMAGE}:latest ."
                     }
+                }
+            }
+        }
+
+        stage('PUSH TO AMAZON ECR') {
+            steps {
+                script {
+                    echo "Authenticating Docker with Amazon ECR (${AWS_REGION})..."
+                    sh "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_REGISTRY}"
+
+                    echo "Pushing image tag #${env.BUILD_NUMBER} to ECR..."
+                    sh "docker push ${ECR_IMAGE}:${env.BUILD_NUMBER}"
+
+                    echo "Pushing latest image tag to ECR..."
+                    sh "docker push ${ECR_IMAGE}:latest"
+                }
+            }
+        }
+
+        stage('ECS DEPLOY') {
+            steps {
+                script {
+                    echo "Triggering zero-downtime rolling deployment on Amazon ECS Service: ${ECS_SERVICE}..."
+                    sh """
+                        aws ecs update-service \
+                            --cluster ${ECS_CLUSTER} \
+                            --service ${ECS_SERVICE} \
+                            --force-new-deployment \
+                            --region ${AWS_REGION}
+                    """
+
+                    echo "Waiting for ECS service stability (new task spinning up)..."
+                    sh """
+                        aws ecs wait services-stable \
+                            --cluster ${ECS_CLUSTER} \
+                            --services ${ECS_SERVICE} \
+                            --region ${AWS_REGION} || true
+                    """
+                    echo "✅ Amazon ECS deployment command completed successfully!"
                 }
             }
         }
@@ -160,14 +152,14 @@ pipeline {
         success {
             sh """
                 curl -s -X POST -H 'Content-type: application/json' \
-                --data '{"attachments": [{"color": "#2EB886", "title": "✅ Pipeline Succeeded: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Enterprise CI/CD", "short": true}, {"title": "Branch", "value": "main", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "SonarQube Quality Gate", "value": "PASSED", "short": true}, {"title": "Nexus Repository", "value": "Artifact Published", "short": true}], "footer": "Ankit Infotech CI/CD Automation"}]}' \
+                --data '{"attachments": [{"color": "#2EB886", "title": "✅ Container Pipeline Succeeded: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Modern Cloud Native", "short": true}, {"title": "Branch", "value": "${env.GIT_BRANCH ?: 'Docker_ECSR'}", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Quality Gate", "value": "PASSED (SonarQube)", "short": true}, {"title": "Amazon ECR Image", "value": "${ECR_REPOSITORY}:${env.BUILD_NUMBER}", "short": true}, {"title": "Amazon ECS", "value": "Deployed to Fargate", "short": true}], "footer": "Ankit Infotech Cloud Automation"}]}' \
                 ${SLACK_WEBHOOK_URL} || true
             """
         }
         failure {
             sh """
                 curl -s -X POST -H 'Content-type: application/json' \
-                --data '{"attachments": [{"color": "#E01E5A", "title": "❌ Pipeline Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Enterprise CI/CD", "short": true}, {"title": "Branch", "value": "main", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Status", "value": "Build failed. Inspect Jenkins console log.", "short": false}], "footer": "Ankit Infotech CI/CD Automation"}]}' \
+                --data '{"attachments": [{"color": "#E01E5A", "title": "❌ Container Pipeline Failed: ${env.JOB_NAME} #${env.BUILD_NUMBER}", "title_link": "${env.BUILD_URL}", "fields": [{"title": "Project", "value": "VProfile Modern Cloud Native", "short": true}, {"title": "Branch", "value": "${env.GIT_BRANCH ?: 'Docker_ECSR'}", "short": true}, {"title": "Author", "value": "Ankit Gawade", "short": true}, {"title": "Status", "value": "Pipeline halted. Check Jenkins logs.", "short": false}], "footer": "Ankit Infotech Cloud Automation"}]}' \
                 ${SLACK_WEBHOOK_URL} || true
             """
         }

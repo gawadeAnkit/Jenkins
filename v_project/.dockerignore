@@ -1,0 +1,9 @@
+.git
+.gitignore
+*.md
+terraform/
+ansible/
+scripts/
+userdata/
+.terraform*
+*.tfstate*
