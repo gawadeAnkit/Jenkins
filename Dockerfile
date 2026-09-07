@@ -2,22 +2,10 @@
 # Dockerfile: VProfile Enterprise Cloud-Native Container (Java 17 / Spring 6)
 # Target Architecture: Amazon ECR & Amazon ECS (AWS Fargate)
 # Author: Ankit Gawade
-# Standards: CIS Docker Benchmark Hardened (Non-Root Execution, Multi-Stage)
+# Standards: CIS Docker Benchmark Hardened (Non-Root Execution, Pre-built WAR)
 # ==============================================================================
 
-# ------------------------------------------------------------------------------
-# Stage 1: Build Stage (Fallback for standalone builds outside Jenkins)
-# ------------------------------------------------------------------------------
-FROM maven:3.9-eclipse-temurin-17 AS builder
-WORKDIR /app
-COPY pom.xml .
-COPY src ./src
-RUN mvn clean package -DskipTests
-
-# ------------------------------------------------------------------------------
-# Stage 2: Hardened Production Runtime (Apache Tomcat 10 on Eclipse Temurin JDK 17)
-# ------------------------------------------------------------------------------
-FROM tomcat:10.1-jdk17-temurin AS runtime
+FROM tomcat:10.1-jdk17-temurin
 
 # OpenContainer Standard Labels
 LABEL org.opencontainers.image.title="VProfile Web Application" \
@@ -38,9 +26,8 @@ RUN rm -rf ${CATALINA_HOME}/webapps/*
 RUN groupadd -r tomcat -g 1001 && \
     useradd -u 1001 -r -g tomcat -m -d ${CATALINA_HOME} -s /sbin/nologin tomcat
 
-# 3. Copy application WAR artifact (prioritizes local target/ if built by CI, else uses builder stage)
-ARG WAR_FILE=target/vprofile-v2.war
-COPY ${WAR_FILE} ${CATALINA_HOME}/webapps/ROOT.war
+# 3. Copy application WAR artifact built by Jenkins Maven stage directly into Tomcat
+COPY target/vprofile-v2.war ${CATALINA_HOME}/webapps/ROOT.war
 
 # 4. Set strict file permissions for non-root execution
 RUN chown -R tomcat:tomcat ${CATALINA_HOME} && \
