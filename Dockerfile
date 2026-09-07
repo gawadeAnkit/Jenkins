@@ -22,8 +22,9 @@ ENV APP_PORT=8080 \
 # 1. Clean boilerplate Tomcat default applications (prevents directory traversal & memory leak)
 RUN rm -rf ${CATALINA_HOME}/webapps/*
 
-# 2. Security Hardening: Create non-privileged service user and group
-RUN groupadd -r tomcat -g 1001 && \
+# 2. Security Hardening & ALB Reverse Proxy Support:
+RUN sed -i '/<\/Host>/i \        <Valve className="org.apache.catalina.valves.RemoteIpValve" internalProxies=".*" remoteIpHeader="x-forwarded-for" protocolHeader="x-forwarded-proto" portHeader="x-forwarded-port" \/>' ${CATALINA_HOME}/conf/server.xml && \
+    groupadd -r tomcat -g 1001 && \
     useradd -u 1001 -r -g tomcat -m -d ${CATALINA_HOME} -s /sbin/nologin tomcat && \
     chown -R tomcat:tomcat ${CATALINA_HOME}/webapps ${CATALINA_HOME}/conf ${CATALINA_HOME}/logs ${CATALINA_HOME}/work ${CATALINA_HOME}/temp && \
     chmod -R 775 ${CATALINA_HOME}/webapps ${CATALINA_HOME}/conf ${CATALINA_HOME}/logs ${CATALINA_HOME}/work ${CATALINA_HOME}/temp

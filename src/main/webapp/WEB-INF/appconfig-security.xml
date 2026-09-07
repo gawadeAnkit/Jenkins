@@ -6,7 +6,10 @@
 						http://www.springframework.org/schema/security http://www.springframework.org/schema/security/spring-security.xsd">
 
 	<http auto-config="true">
-		<intercept-url pattern="/" access="hasRole('ROLE_USER')" />
+		<intercept-url pattern="/resources/**" access="permitAll" />
+		<intercept-url pattern="/login" access="permitAll" />
+		<intercept-url pattern="/error/**" access="permitAll" />
+		<intercept-url pattern="/" access="permitAll" />
 		<intercept-url pattern="/welcome" access="hasRole('ROLE_USER')" />
 		<form-login login-page="/login" default-target-url="/welcome"
 			authentication-failure-url="/login?error"

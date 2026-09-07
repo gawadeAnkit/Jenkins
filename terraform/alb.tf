@@ -11,9 +11,17 @@ resource "aws_security_group" "alb_sg" {
   vpc_id      = data.aws_vpc.default.id
 
   ingress {
-    description = "Allow HTTP inbound from anywhere"
+    description = "Allow HTTP inbound on port 80"
     from_port   = 80
     to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "Allow HTTP inbound on port 8080"
+    from_port   = 8080
+    to_port     = 8080
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -90,7 +98,25 @@ resource "aws_lb_listener" "vprofile_listener" {
   }
 
   tags = {
-    Name    = "vprofile-alb-listener"
+    Name    = "vprofile-alb-listener-80"
+    Project = "vprofile"
+    Author  = "Ankit Gawade"
+  }
+}
+
+# 5. ALB HTTP Listener (Port 8080 -> Forward to Target Group)
+resource "aws_lb_listener" "vprofile_listener_8080" {
+  load_balancer_arn = aws_lb.vprofile_alb.arn
+  port              = 8080
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.vprofile_tg.arn
+  }
+
+  tags = {
+    Name    = "vprofile-alb-listener-8080"
     Project = "vprofile"
     Author  = "Ankit Gawade"
   }

@@ -2,7 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>User Not Found</title>
+    <title>Internal Server Error</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
@@ -28,12 +28,12 @@
         }
         h1 {
             color: #dc3545;
-            font-size: 48px;
+            font-size: 36px;
             margin: 0;
         }
         p {
             color: #495057;
-            font-size: 18px;
+            font-size: 16px;
             margin: 20px 0;
         }
         a {
@@ -45,7 +45,7 @@
             text-decoration: underline;
         }
         .icon {
-            font-size: 100px;
+            font-size: 80px;
             color: #dc3545;
             margin-bottom: 20px;
         }
@@ -54,10 +54,10 @@
 <body>
     <div class="container">
         <div class="icon">
-            <i class="fas fa-user-times"></i>
+            <i class="fas fa-exclamation-triangle"></i>
         </div>
-        <h1>User Not Found</h1>
-        <p>It seems we couldn't find your account. You can <a href="${pageContext.request.contextPath}/registration">create a new account</a> if you don't have one.</p>
+        <h1>System Error (500)</h1>
+        <p>An internal server error occurred while processing your request. Please return to the <a href="${pageContext.request.contextPath}/login">login page</a> or try again.</p>
     </div>
 </body>
 </html>
