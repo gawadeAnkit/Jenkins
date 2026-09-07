@@ -1,5 +1,7 @@
 # VProfile Enterprise CI/CD & Automated Infrastructure Pipeline
 
+<!-- Production Deployment Verified by Ankit Gawade | Release v2.1 -->
+
 [![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
 [![Java](https://img.shields.io/badge/Java-17-orange.svg)]()
 [![Spring](https://img.shields.io/badge/Spring%20Framework-6.0-green.svg)]()
