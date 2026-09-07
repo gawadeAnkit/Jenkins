@@ -20,17 +20,6 @@ resource "aws_ecs_cluster" "vprofile_cluster" {
   }
 }
 
-# 2. CloudWatch Log Group for Container Standard Output
-resource "aws_cloudwatch_log_group" "ecs_vprofile_logs" {
-  name              = "/ecs/vprofile-app"
-  retention_in_days = 7
-
-  tags = {
-    Name    = "ecs-vprofile-logs"
-    Project = "vprofile"
-    Author  = "Ankit Gawade"
-  }
-}
 
 # 3. IAM Execution Role for ECS Agent (Pulls from ECR & writes logs to CloudWatch)
 resource "aws_iam_role" "ecs_execution_role" {
@@ -116,7 +105,7 @@ resource "aws_ecs_task_definition" "vprofile_task" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = aws_cloudwatch_log_group.ecs_vprofile_logs.name
+          "awslogs-group"         = "/ecs/vprofile-app"
           "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = "vprofile"
         }
