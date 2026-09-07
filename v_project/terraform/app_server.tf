@@ -52,7 +52,7 @@ resource "aws_security_group" "app_server_sg" {
 # ==============================================================================
 resource "aws_instance" "app_server" {
   ami                         = data.aws_ami.ubuntu.id
-  instance_type               = var.instance_type # t3.micro
+  instance_type               = "t3.small"
   key_name                    = aws_key_pair.jenkins_key.key_name
   vpc_security_group_ids      = [aws_security_group.app_server_sg.id]
   subnet_id                   = data.aws_subnets.default.ids[0]
