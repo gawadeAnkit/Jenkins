@@ -1,5 +1,6 @@
 # ==============================================================================
 # START VPROFILE LAB INSTANCES & DISPLAY SERVICE URLS
+# Target: Jenkins CI Controller & SonarQube Code Quality Server
 # ==============================================================================
 Write-Host "Checking for stopped VProfile EC2 instances..." -ForegroundColor Cyan
 
@@ -44,18 +45,13 @@ if ($rawJson) {
 }
 
 $jenkinsIp = $dict['Jenkins server']
-$appIp     = $dict['App server']
-$nexusIp   = $dict['Nexus server']
 $sonarIp   = $dict['SonarQube server']
 
-Write-Host "`nLive Dashboard URLs:" -ForegroundColor Cyan
-if ($jenkinsIp) { Write-Host "  - Jenkins:    http://${jenkinsIp}:8080" -ForegroundColor Green }
-if ($appIp)     { Write-Host "  - App Server: http://${appIp}:8080" -ForegroundColor Green }
-if ($nexusIp)   { Write-Host "  - Nexus:      http://${nexusIp}:8081" -ForegroundColor Green }
-if ($sonarIp)   { Write-Host "  - SonarQube:  http://${sonarIp}:9000" -ForegroundColor Green }
+Write-Host "`nLive Service URLs:" -ForegroundColor Cyan
+if ($jenkinsIp) { Write-Host "  - Jenkins Controller: http://${jenkinsIp}:8080" -ForegroundColor Green }
+if ($sonarIp)   { Write-Host "  - SonarQube Server:   http://${sonarIp}:9000" -ForegroundColor Green }
 
 if ($jenkinsIp) {
     Write-Host "`nGitHub Webhook URL (update in GitHub Settings -> Webhooks):" -ForegroundColor Yellow
     Write-Host "  http://${jenkinsIp}:8080/github-webhook/" -ForegroundColor White
 }
-

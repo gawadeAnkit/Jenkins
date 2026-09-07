@@ -1,5 +1,7 @@
 # ==============================================================================
 # AWS CLOUDWATCH MONITORING & OBSERVABILITY INFRASTRUCTURE (100% FREE TIER)
+# Target Architecture: Jenkins Controller & SonarQube Server
+# Author: Ankit Gawade
 # ==============================================================================
 
 # ------------------------------------------------------------------------------
@@ -19,14 +21,12 @@ resource "aws_cloudwatch_dashboard" "main" {
         properties = {
           metrics = [
             ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.jenkins_server.id, { "label": "Jenkins Controller", "color": "#d62728" }],
-            ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.app_server.id, { "label": "Tomcat App Server", "color": "#2ca02c" }],
-            ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.nexus_server.id, { "label": "Nexus Repository", "color": "#1f77b4" }],
             ["AWS/EC2", "CPUUtilization", "InstanceId", aws_instance.sonarqube_server.id, { "label": "SonarQube Server", "color": "#ff7f0e" }]
           ]
           period = 300
           stat   = "Average"
           region = var.aws_region
-          title  = "Server CPU Utilization (%)"
+          title  = "CI/CD Server CPU Utilization (%)"
           yAxis = {
             left = {
               min = 0
@@ -44,8 +44,6 @@ resource "aws_cloudwatch_dashboard" "main" {
         properties = {
           metrics = [
             ["AWS/EC2", "StatusCheckFailed", "InstanceId", aws_instance.jenkins_server.id, { "label": "Jenkins Health" }],
-            ["AWS/EC2", "StatusCheckFailed", "InstanceId", aws_instance.app_server.id, { "label": "App Server Health" }],
-            ["AWS/EC2", "StatusCheckFailed", "InstanceId", aws_instance.nexus_server.id, { "label": "Nexus Health" }],
             ["AWS/EC2", "StatusCheckFailed", "InstanceId", aws_instance.sonarqube_server.id, { "label": "SonarQube Health" }]
           ]
           period = 300
@@ -64,8 +62,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         properties = {
           metrics = [
             ["AWS/EC2", "NetworkIn", "InstanceId", aws_instance.jenkins_server.id, { "label": "Jenkins Network In" }],
-            ["AWS/EC2", "NetworkIn", "InstanceId", aws_instance.app_server.id, { "label": "App Server Network In" }],
-            ["AWS/EC2", "NetworkIn", "InstanceId", aws_instance.nexus_server.id, { "label": "Nexus Network In" }]
+            ["AWS/EC2", "NetworkIn", "InstanceId", aws_instance.sonarqube_server.id, { "label": "SonarQube Network In" }]
           ]
           period = 300
           stat   = "Average"
@@ -82,8 +79,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         properties = {
           metrics = [
             ["AWS/EC2", "NetworkOut", "InstanceId", aws_instance.jenkins_server.id, { "label": "Jenkins Network Out" }],
-            ["AWS/EC2", "NetworkOut", "InstanceId", aws_instance.app_server.id, { "label": "App Server Network Out" }],
-            ["AWS/EC2", "NetworkOut", "InstanceId", aws_instance.nexus_server.id, { "label": "Nexus Network Out" }]
+            ["AWS/EC2", "NetworkOut", "InstanceId", aws_instance.sonarqube_server.id, { "label": "SonarQube Network Out" }]
           ]
           period = 300
           stat   = "Average"
@@ -96,7 +92,7 @@ resource "aws_cloudwatch_dashboard" "main" {
 }
 
 # ------------------------------------------------------------------------------
-# 3. CLOUDWATCH METRIC ALARMS (Standard Resolution - Free Tier)
+# 2. CLOUDWATCH METRIC ALARMS (Standard Resolution - Free Tier)
 # ------------------------------------------------------------------------------
 
 # Alarm: Jenkins High CPU (> 85%)
@@ -117,48 +113,7 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_high_cpu" {
 
   tags = {
     Project = "vprofile"
-  }
-}
-
-# Alarm: App Server High CPU (> 85%)
-resource "aws_cloudwatch_metric_alarm" "app_server_high_cpu" {
-  alarm_name          = "vprofile-app-server-high-cpu"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 2
-  metric_name         = "CPUUtilization"
-  namespace           = "AWS/EC2"
-  period              = 300
-  statistic           = "Average"
-  threshold           = 85
-  alarm_description   = "Alarm when Tomcat App Server CPU exceeds 85% for 10 minutes"
-
-  dimensions = {
-    InstanceId = aws_instance.app_server.id
-  }
-
-  tags = {
-    Project = "vprofile"
-  }
-}
-
-# Alarm: App Server Health Check Failure
-resource "aws_cloudwatch_metric_alarm" "app_server_health" {
-  alarm_name          = "vprofile-app-server-status-check"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = 1
-  metric_name         = "StatusCheckFailed"
-  namespace           = "AWS/EC2"
-  period              = 300
-  statistic           = "Maximum"
-  threshold           = 0
-  alarm_description   = "Alarm when Tomcat App Server fails AWS hardware or reachability checks"
-
-  dimensions = {
-    InstanceId = aws_instance.app_server.id
-  }
-
-  tags = {
-    Project = "vprofile"
+    Author  = "Ankit Gawade"
   }
 }
 
@@ -180,11 +135,56 @@ resource "aws_cloudwatch_metric_alarm" "jenkins_health" {
 
   tags = {
     Project = "vprofile"
+    Author  = "Ankit Gawade"
+  }
+}
+
+# Alarm: SonarQube High CPU (> 85%)
+resource "aws_cloudwatch_metric_alarm" "sonarqube_high_cpu" {
+  alarm_name          = "vprofile-sonarqube-high-cpu"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 85
+  alarm_description   = "Alarm when SonarQube server CPU exceeds 85% for 10 minutes"
+
+  dimensions = {
+    InstanceId = aws_instance.sonarqube_server.id
+  }
+
+  tags = {
+    Project = "vprofile"
+    Author  = "Ankit Gawade"
+  }
+}
+
+# Alarm: SonarQube Health Check Failure
+resource "aws_cloudwatch_metric_alarm" "sonarqube_health" {
+  alarm_name          = "vprofile-sonarqube-status-check"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "StatusCheckFailed"
+  namespace           = "AWS/EC2"
+  period              = 300
+  statistic           = "Maximum"
+  threshold           = 0
+  alarm_description   = "Alarm when SonarQube server fails AWS hardware or reachability checks"
+
+  dimensions = {
+    InstanceId = aws_instance.sonarqube_server.id
+  }
+
+  tags = {
+    Project = "vprofile"
+    Author  = "Ankit Gawade"
   }
 }
 
 # ------------------------------------------------------------------------------
-# 4. OUTPUTS
+# 3. OUTPUTS
 # ------------------------------------------------------------------------------
 output "cloudwatch_dashboard_url" {
   description = "Direct URL to view your CloudWatch Infrastructure Monitoring Dashboard"
