@@ -25,7 +25,8 @@ RUN rm -rf ${CATALINA_HOME}/webapps/*
 # 2. Security Hardening: Create non-privileged service user and group
 RUN groupadd -r tomcat -g 1001 && \
     useradd -u 1001 -r -g tomcat -m -d ${CATALINA_HOME} -s /sbin/nologin tomcat && \
-    chown -R tomcat:tomcat ${CATALINA_HOME}/logs ${CATALINA_HOME}/work ${CATALINA_HOME}/temp
+    chown -R tomcat:tomcat ${CATALINA_HOME}/webapps ${CATALINA_HOME}/conf ${CATALINA_HOME}/logs ${CATALINA_HOME}/work ${CATALINA_HOME}/temp && \
+    chmod -R 775 ${CATALINA_HOME}/webapps ${CATALINA_HOME}/conf ${CATALINA_HOME}/logs ${CATALINA_HOME}/work ${CATALINA_HOME}/temp
 
 # 3. Copy application WAR artifact built by Jenkins Maven stage directly into Tomcat with ownership
 COPY --chown=tomcat:tomcat target/vprofile-v2.war ${CATALINA_HOME}/webapps/ROOT.war
